@@ -35,22 +35,30 @@ enum TxStatus {
 
 // Clerk-backed app user
 model AppUser {
-  id      String  @id @default(cuid())
-  clerkId String  @unique // Clerk user id
-  email   String  @unique
-  name    String?
+  id           String    @id @default(cuid())
 
+  // Clerk reference
+  clerkId      String    @unique
+  email        String    @unique
+
+  // Display fields
+  username     String?   @unique  // optional now, can be required later
+  firstName    String?
+  lastName     String?
+  imageUrl     String?   // Clerk provides default
+
+  // Relations
   wallets      Wallet[]
   paymentLinks PaymentLink[]
-  transactions Transaction[] // convenience FK to who owns the link
+  transactions Transaction[]
 
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  // System flags
+  isActive     Boolean   @default(true)
 
-  @@index([clerkId])
-  @@index([email])
+  // Audit fields
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 }
-
 // Non-custodial destination(s) the freelancer controls
 model Wallet {
   id     String  @id @default(cuid())

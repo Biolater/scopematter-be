@@ -4,6 +4,7 @@ import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
 import { clerkMiddleware, requireAuth } from "@clerk/express";
+import webhookRouter from "./routes/webhook.router";
 
 const app = express();
 
@@ -16,6 +17,7 @@ app.use(
 );
 app.use(cors());
 app.use(helmet());
+app.use(webhookRouter);
 app.use(express.json());
 app.use(morgan("dev"));
 
