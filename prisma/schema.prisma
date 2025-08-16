@@ -1,15 +1,149 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
-
+// ---------------- Generators & DB ----------------
 generator client {
   provider = "prisma-client-js"
-  output   = "../src/generated/prisma"
 }
 
 datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+
+// ---------------- Enums ----------------
+enum Chain {
+  ETH_MAINNET
+  // add more later: POLYGON_MAINNET, ARBITRUM_ONE, BSC_MAINNET
+}
+
+enum Asset {
+  ETH
+  USDT
+}
+
+enum PaymentLinkStatus {
+  ACTIVE
+  INACTIVE
+}
+
+enum TxStatus {
+  PENDING
+  SUCCESS
+  FAILED
+}
+
+// ---------------- Models ----------------
+
+// Clerk-backed app user
+model AppUser {
+  id           String    @id @default(cuid())
+
+  // Clerk reference
+  clerkId      String    @unique
+  email        String    @unique
+
+  // Display fields
+  username     String?   @unique  // optional now, can be required later
+  firstName    String?
+  lastName     String?
+  imageUrl     String?   // Clerk provides default
+
+  // Relations
+  wallets      Wallet[]
+  paymentLinks PaymentLink[]
+  transactions Transaction[]
+
+  // System flags
+  isActive     Boolean   @default(true)
+
+  // Audit fields
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+// Non-custodial destination(s) the freelancer controls
+model Wallet {
+  id     String  @id @default(cuid())
+  userId String
+  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  address   String
+  chain     Chain
+  isPrimary Boolean @default(false)
+
+  paymentLinks PaymentLink[] // <— back relation added
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([userId, chain, address])
+  @@index([userId, chain, isPrimary])
+}
+
+// Shareable link a client pays into; maps to a specific wallet + asset
+model PaymentLink {
+  id     String  @id @default(cuid())
+  userId String
+  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  walletId String
+  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+
+  // public slug (e.g., paylynk.app/p/:slug)
+  slug String @unique @default(cuid())
+
+  // Optional pre-filled USD amount client sees; can be empty for “enter any amount”
+  amountUsd Decimal? @db.Decimal(18, 2)
+
+  // What will be delivered to the wallet
+  asset Asset
+  chain Chain
+
+  status PaymentLinkStatus @default(ACTIVE)
+  memo   String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  transactions Transaction[]
+
+  @@index([userId, status])
+}
+
+// Logged result of an Onramper payment → crypto delivered to wallet
+model Transaction {
+  id String @id @default(cuid())
+
+  // Who ultimately owns this (via link)
+  userId String? // <— made optional for SetNull
+  user   AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  paymentLinkId String
+  paymentLink   PaymentLink @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+
+  // Onramper identifiers & blockchain tx
+  onramperTxId String? @unique
+  txHash       String? @unique
+  chain        Chain
+  asset        Asset
+
+  // Amounts
+  // USD paid by client (post-processor), stored to 2 decimals
+  amountUsd    Decimal @db.Decimal(18, 2)
+  // Crypto delivered to freelancer wallet (high precision)
+  cryptoAmount Decimal @db.Decimal(38, 18)
+
+  // Platform economics
+  feeBps Int      @default(150) // 1.5% default; adjust per-transaction if needed
+  feeUsd Decimal? @db.Decimal(18, 2) // optional denormalized fee in USD
+
+  status TxStatus @default(PENDING)
+
+  // Raw payloads if you want lightweight auditing
+  providerRaw Json?
+  notes       String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([paymentLinkId, status])
+  @@index([chain, asset])
 }
