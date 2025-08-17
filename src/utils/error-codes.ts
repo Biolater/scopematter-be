@@ -1,0 +1,13 @@
+export const ErrorCodes = {
+    UNAUTHORIZED: "UNAUTHORIZED",
+    FORBIDDEN: "FORBIDDEN",
+    VALIDATION_ERROR: "VALIDATION_ERROR",
+    NOT_FOUND: "NOT_FOUND",
+    CONFLICT: "CONFLICT",
+    INTERNAL_SERVER_ERROR: "INTERNAL_SERVER_ERROR",
+    DATABASE_ERROR: "DATABASE_ERROR",
+    WEBHOOK_ERROR: "WEBHOOK_ERROR",
+    RATE_LIMITED: "RATE_LIMITED",
+} as const;
+
+export type ErrorCode = typeof ErrorCodes[keyof typeof ErrorCodes];
