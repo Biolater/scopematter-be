@@ -1,0 +1,17 @@
+export const ServiceErrorCodes = {
+    // Wallet
+    WALLET_NOT_FOUND: "WALLET_NOT_FOUND",
+    WALLET_EXISTS: "WALLET_EXISTS",
+    ALREADY_PRIMARY: "ALREADY_PRIMARY",
+    CANNOT_DELETE_PRIMARY: "CANNOT_DELETE_PRIMARY",
+
+    // PaymentLink
+    PAYMENTLINK_NOT_FOUND: "PAYMENTLINK_NOT_FOUND",
+    CHAIN_MISMATCH: "CHAIN_MISMATCH",
+    UNSUPPORTED_ASSET: "UNSUPPORTED_ASSET",
+    INVALID_AMOUNT: "INVALID_AMOUNT",
+    MEMO_TOO_LONG: "MEMO_TOO_LONG",
+} as const;
+
+export type ServiceErrorCode =
+    typeof ServiceErrorCodes[keyof typeof ServiceErrorCodes];
