@@ -3,7 +3,7 @@ import cors from "cors";
 import helmet from "helmet";
 import morgan from "morgan";
 import { ENV } from "./config/env";
-import { clerkMiddleware } from "@clerk/express";
+import { clerkClient, clerkMiddleware } from "@clerk/express";
 import { requireAuth } from "./middleware/auth"; // <- your custom one
 import webhookRouter from "./routes/webhook.router";
 import { sendSuccess } from "./utils/response";
@@ -29,6 +29,43 @@ app.use("/wallets", walletRouter);
 
 app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
+});
+
+app.get("/clerk/:userId", async (req: Request, res: Response) => {
+    try {
+        // 🔥 FIX: always coerce to string
+        const secret = String(req.headers["x-internal-secret"] || "").trim();
+
+        if (secret !== ENV.INTERNAL_API_SECRET) {
+            console.log("Invalid secret:", secret); // debug
+            return res.status(403).json({ error: "Forbidden" });
+        }
+
+        const { userId } = req.params;
+
+        // Get Clerk user
+        const user = await clerkClient.users.getUser(userId);
+
+        // Get sessions
+        const sessions = await clerkClient.sessions.getSessionList({ userId });
+        if (!sessions || sessions.data.length === 0) {
+            return res.status(404).json({ error: "No active sessions for this user" });
+        }
+
+        const sessionId = sessions.data[0].id;
+
+        // Mint JWT using your template ("postman")
+        const token = await clerkClient.sessions.getToken(sessionId, "postman");
+
+        return res.json({
+            message: "Clerk route",
+            user,
+            jwt: token.jwt,
+        });
+    } catch (err: any) {
+        console.error("Error in /clerk/:userId", err);
+        return res.status(500).json({ error: err.message });
+    }
 });
 
 // Example protected route

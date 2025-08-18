@@ -16,6 +16,14 @@ export async function getWallets(req: Request, res: Response) {
 export async function createWallet(req: Request, res: Response) {
     try {
         const { address, chain, isPrimary } = req.body;
+        const hasWallet = await prisma.wallet.findFirst({
+            where: { address, chain, userId: req.user.id },
+        });
+        if (hasWallet) {
+            return sendError(res, "Wallet already exists", ErrorCodes.VALIDATION_ERROR, 400);
+        }
+
+
         // If isPrimary is true, make all other primary wallets false
         if (isPrimary) {
             await prisma.wallet.updateMany({
