@@ -11,10 +11,10 @@ export function errorHandler(
     console.error("Unhandled error:", err);
 
     // For unexpected errors, you don’t want to expose internals
-    return sendError(
+    return sendError({
         res,
-        "Something went wrong",
-        ErrorCodes.INTERNAL_SERVER_ERROR,
-        500
-    );
+        message: "Something went wrong",
+        code: ErrorCodes.INTERNAL_SERVER_ERROR,
+        status: 500,
+    });
 }

@@ -8,13 +8,7 @@ export function validateBody(schema: ZodSchema) {
   return (req: Request, res: Response, next: NextFunction) => {
     const result = schema.safeParse(req.body);
     if (!result.success) {
-      return sendError(
-        res,
-        "Validation failed",
-        ErrorCodes.VALIDATION_ERROR,
-        400,
-        formatZodError(result.error)
-      );
+      return sendError({ res, message: "Validation failed", code: ErrorCodes.VALIDATION_ERROR, status: 400, details: formatZodError(result.error) });
     }
     req.body = result.data;
     next();

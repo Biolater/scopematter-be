@@ -24,12 +24,28 @@ export interface ErrorResponse {
     meta: Record<string, unknown>;
 }
 
-export function sendSuccess<T>(
-    res: Response,
-    data: T,
-    status: number = 200,
-    meta: Record<string, unknown> = {}
-): Response<SuccessResponse<T>> {
+interface SendSuccessParams<T> {
+    res: Response;
+    data: T;
+    status?: number;
+    meta?: Record<string, unknown>;
+}
+
+interface SendErrorParams {
+    res: Response;
+    message: string;
+    code?: ErrorCode;
+    status?: number;
+    details?: ErrorDetail[];
+    meta?: Record<string, unknown>;
+}
+
+export function sendSuccess<T>({
+    res,
+    data,
+    status = 200,
+    meta = {},
+}: SendSuccessParams<T>): Response<SuccessResponse<T>> {
     return res.status(status).json({
         success: true,
         data,
@@ -38,14 +54,14 @@ export function sendSuccess<T>(
     });
 }
 
-export function sendError(
-    res: Response,
-    message: string,
-    code: ErrorCode = ErrorCodes.INTERNAL_SERVER_ERROR,
-    status: number = 500,
-    details: ErrorDetail[] = [],
-    meta: Record<string, unknown> = {}
-): Response<ErrorResponse> {
+export function sendError({
+    res,
+    message,
+    code = ErrorCodes.INTERNAL_SERVER_ERROR,
+    status = 500,
+    details = [],
+    meta = {},
+}: SendErrorParams): Response<ErrorResponse> {
     return res.status(status).json({
         success: false,
         data: null,

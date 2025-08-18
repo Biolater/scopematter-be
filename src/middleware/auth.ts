@@ -13,7 +13,7 @@ export async function requireAuth(
         const { userId } = getAuth(req);
 
         if (!userId) {
-            return sendError(res, "Unauthorized", ErrorCodes.UNAUTHORIZED, 401);
+            return sendError({ res, message: "Unauthorized", code: ErrorCodes.UNAUTHORIZED, status: 401 });
         }
 
         let appUser = await prisma.appUser.findUnique({
@@ -21,7 +21,7 @@ export async function requireAuth(
         });
 
         if (!appUser) {
-            return sendError(res, "User not found", ErrorCodes.NOT_FOUND, 404);
+            return sendError({ res, message: "User not found", code: ErrorCodes.NOT_FOUND, status: 404 });
         }
 
         req.user = appUser;
@@ -29,6 +29,6 @@ export async function requireAuth(
         next();
     } catch (err) {
         console.error("Auth middleware error:", err);
-        return sendError(res, "Auth failed", ErrorCodes.INTERNAL_SERVER_ERROR, 500);
+        return sendError({ res, message: "Auth failed", code: ErrorCodes.INTERNAL_SERVER_ERROR, status: 500 });
     }
 }

@@ -12,3 +12,12 @@ export interface CreatePaymentLinkInput {
 export interface GetPaymentLinkBySlugInput {
     slug: string;
 }
+
+export interface GetPaymentLinksInput {
+    userId: string;
+}
+
+export interface DeletePaymentLinkInput {
+    userId: string;
+    paymentLinkId: string;
+}

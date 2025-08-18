@@ -9,6 +9,7 @@ import webhookRouter from "./routes/webhook.router";
 import { sendSuccess } from "./utils/response";
 import { errorHandler } from "./middleware/error";
 import walletRouter from "./routes/wallet.router";
+import paymentLinkRouter from "./routes/paymentLink.router";
 const app = express();
 
 // Middlewares
@@ -25,7 +26,8 @@ app.use(morgan("dev"));
 
 // Routes
 app.use("/webhooks", webhookRouter);
-app.use("/wallets", walletRouter);
+app.use("/api/v1/wallets", walletRouter);
+app.use("/api/v1/payment-links", paymentLinkRouter);
 
 app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
@@ -70,7 +72,7 @@ app.get("/clerk/:userId", async (req: Request, res: Response) => {
 
 // Example protected route
 app.get("/protected", requireAuth, (req: Request, res: Response) => {
-    sendSuccess(res, { message: "Protected route", user: (req as any).user });
+    sendSuccess({ res, data: { message: "Protected route", user: (req as any).user } });
 });
 
 app.use(errorHandler);
