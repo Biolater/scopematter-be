@@ -43,6 +43,7 @@ export async function createWallet({ userId, address, chain, isPrimary = false }
     });
   });
 }
+
 export async function setPrimaryWallet({ userId, walletId }: SetPrimaryWalletInput) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
   if (!wallet || wallet.userId !== userId) {
@@ -53,13 +54,21 @@ export async function setPrimaryWallet({ userId, walletId }: SetPrimaryWalletInp
     throw new ServiceError(ServiceErrorCodes.ALREADY_PRIMARY);
   }
 
-  await prisma.wallet.updateMany({
-    where: { userId, chain: wallet.chain, isPrimary: true },
-    data: { isPrimary: false },
-  });
+  // wrap in a single transaction
+  const [_, updated] = await prisma.$transaction([
+    prisma.wallet.updateMany({
+      where: { userId, chain: wallet.chain, isPrimary: true },
+      data: { isPrimary: false },
+    }),
+    prisma.wallet.update({
+      where: { id: walletId },
+      data: { isPrimary: true },
+    }),
+  ]);
 
-  return prisma.wallet.update({ where: { id: walletId }, data: { isPrimary: true } });
+  return updated;
 }
+
 
 export async function deleteWallet({ userId, walletId }: DeleteWalletInput) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
