@@ -12,20 +12,37 @@ export async function getUserWallets({ userId }: GetUserWalletsInput) {
   return prisma.wallet.findMany({ where: { userId } });
 }
 
-export async function createWallet({ userId, address, chain, isPrimary }: CreateWalletInput) {
-  const hasWallet = await prisma.wallet.findFirst({ where: { address, chain, userId } });
-  if (hasWallet) throw new ServiceError(ServiceErrorCodes.WALLET_EXISTS);
-
-  if (isPrimary) {
-    await prisma.wallet.updateMany({
-      where: { userId, chain, isPrimary: true },
-      data: { isPrimary: false },
+export async function createWallet({ userId, address, chain, isPrimary = false }: CreateWalletInput) {
+  return prisma.$transaction(async (tx) => {
+    // Prevent duplicates
+    const hasWallet = await tx.wallet.findFirst({
+      where: { address, chain, userId },
     });
-  }
+    if (hasWallet) {
+      throw new ServiceError(ServiceErrorCodes.WALLET_EXISTS);
+    }
 
-  return prisma.wallet.create({ data: { userId, address, chain, isPrimary } });
+    // If marked as primary, demote all others
+    if (isPrimary) {
+      await tx.wallet.updateMany({
+        where: { userId, chain, isPrimary: true },
+        data: { isPrimary: false },
+      });
+    } else {
+      // Ensure at least one primary exists per chain
+      const alreadyHasPrimary = await tx.wallet.findFirst({
+        where: { userId, chain, isPrimary: true },
+      });
+      if (!alreadyHasPrimary) {
+        isPrimary = true; // auto-promote new wallet
+      }
+    }
+
+    return tx.wallet.create({
+      data: { userId, address, chain, isPrimary },
+    });
+  });
 }
-
 export async function setPrimaryWallet({ userId, walletId }: SetPrimaryWalletInput) {
   const wallet = await prisma.wallet.findUnique({ where: { id: walletId } });
   if (!wallet || wallet.userId !== userId) {
