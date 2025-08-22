@@ -96,10 +96,7 @@ export const deletePaymentLink = async ({ userId, paymentLinkId }: DeletePayment
     }
   
     if (paymentLink.transactions.length > 0) {
-      return prisma.paymentLink.update({
-        where: { id: paymentLinkId },
-        data: { status: "INACTIVE" },
-      });
+      throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_HAS_TRANSACTIONS);
     }
   
     return prisma.paymentLink.delete({
