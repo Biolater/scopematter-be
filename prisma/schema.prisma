@@ -117,7 +117,7 @@ model Transaction {
   user   AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
 
   paymentLinkId String
-  paymentLink   PaymentLink @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  paymentLink   PaymentLink @relation(fields: [paymentLinkId], references: [id], onDelete: Restrict)
 
   // Onramper identifiers & blockchain tx
   onramperTxId String? @unique
