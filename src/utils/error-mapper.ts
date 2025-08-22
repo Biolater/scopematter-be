@@ -28,6 +28,11 @@ export function handleServiceError({ res, e, fallbackMsg }: { res: Response, e: 
         return sendError({ res, message: "Invalid amount", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
       case ServiceErrorCodes.MEMO_TOO_LONG:
         return sendError({ res, message: "Memo too long", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
+      case ServiceErrorCodes.PAYMENTLINK_ALREADY_IN_THIS_STATUS:
+        return sendError({ res, message: "Payment link is already in this status", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
+
+      default:
+        return sendError({ res, message: "Unknown error", code: ErrorCodes.DATABASE_ERROR, status: 500 });
     }
   }
 

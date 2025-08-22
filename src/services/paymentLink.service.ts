@@ -1,5 +1,5 @@
 import prisma from "../lib/prisma";
-import { CreatePaymentLinkInput, DeletePaymentLinkInput, GetPaymentLinkBySlugInput, GetPaymentLinksInput } from "../lib/types/paymentLink";
+import { CreatePaymentLinkInput, DeletePaymentLinkInput, GetPaymentLinkBySlugInput, GetPaymentLinksInput, UpdatePaymentLinkStatusInput } from "../lib/types/paymentLink";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 
@@ -96,3 +96,26 @@ export const deletePaymentLink = async ({ userId, paymentLinkId }: DeletePayment
         data: { status: "INACTIVE" },
     });
 };
+
+export const updatePaymentLinkStatus = async ({
+    userId,
+    paymentLinkId,
+    status,
+  }: UpdatePaymentLinkStatusInput) => {
+    const paymentLink = await prisma.paymentLink.findFirst({
+      where: { id: paymentLinkId, userId },
+    });
+    if (!paymentLink) {
+      throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_NOT_FOUND);
+    }
+  
+    if (status === paymentLink.status) {
+      throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_ALREADY_IN_THIS_STATUS);
+    }
+  
+    return prisma.paymentLink.update({
+      where: { id: paymentLinkId },
+      data: { status },
+    });
+  };
+  

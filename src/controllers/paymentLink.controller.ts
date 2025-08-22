@@ -1,6 +1,6 @@
 import { Request, Response } from "express";
 import { sendSuccess } from "../utils/response";
-import { createPaymentLink, deletePaymentLink, getPaymentLinkBySlug, getPaymentLinks } from "../services/paymentLink.service";
+import { createPaymentLink, deletePaymentLink, getPaymentLinkBySlug, getPaymentLinks, updatePaymentLinkStatus } from "../services/paymentLink.service";
 import { handleServiceError } from "../utils/error-mapper";
 
 export async function createPaymentLinkController(req: Request, res: Response) {
@@ -46,5 +46,16 @@ export async function deletePaymentLinkController(req: Request, res: Response) {
         return sendSuccess({ res, data: paymentLink });
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Error deleting payment link" });
+    }
+}
+
+export async function updatePaymentLinkStatusController(req: Request, res: Response) {
+    try {
+        const { id: paymentLinkId } = req.params;
+        const { status } = req.body;
+        const paymentLink = await updatePaymentLinkStatus({ userId: req.user.id, paymentLinkId, status });
+        return sendSuccess({ res, data: paymentLink });
+    } catch (error) {
+        return handleServiceError({ res, e: error, fallbackMsg: "Error updating payment link status" });
     }
 }
