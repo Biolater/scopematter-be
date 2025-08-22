@@ -5,7 +5,7 @@ const webhookRouter = express.Router();
 
 // Clerk requires raw body, not parsed JSON
 webhookRouter.post(
-  "/webhooks/clerk",
+  "/clerk",
   express.raw({ type: "application/json" }),
   handleClerkWebhook
 );
