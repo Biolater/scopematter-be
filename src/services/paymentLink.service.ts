@@ -52,7 +52,7 @@ export const getPaymentLinkBySlug = async ({ slug }: GetPaymentLinkBySlugInput) 
             user: {
                 select: {
                     imageUrl: true,
-                    email: true,
+                    username: true,
                 },
             },
         },

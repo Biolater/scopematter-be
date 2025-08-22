@@ -42,7 +42,7 @@ model AppUser {
   email        String    @unique
 
   // Display fields
-  username     String?   @unique  // optional now, can be required later
+  username     String   @unique  // optional now, can be required later
   firstName    String?
   lastName     String?
   imageUrl     String?   // Clerk provides default
