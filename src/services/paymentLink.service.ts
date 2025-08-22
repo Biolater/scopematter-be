@@ -67,7 +67,7 @@ export const getPaymentLinkBySlug = async ({ slug }: GetPaymentLinkBySlugInput) 
 
 export const getPaymentLinks = async ({ userId }: GetPaymentLinksInput) => {
     return prisma.paymentLink.findMany({
-        where: { userId, status: "ACTIVE" },
+        where: { userId },
         include: {
             wallet: {
                 select: { address: true, chain: true, isPrimary: true },
