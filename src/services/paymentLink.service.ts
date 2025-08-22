@@ -72,6 +72,12 @@ export const getPaymentLinks = async ({ userId }: GetPaymentLinksInput) => {
             wallet: {
                 select: { address: true, chain: true, isPrimary: true },
             },
+            transactions: {
+                select: {
+                    id: true,
+                },
+                take: 1,
+            },
         },
         orderBy: {
             createdAt: "desc",
@@ -81,21 +87,26 @@ export const getPaymentLinks = async ({ userId }: GetPaymentLinksInput) => {
 
 export const deletePaymentLink = async ({ userId, paymentLinkId }: DeletePaymentLinkInput) => {
     const paymentLink = await prisma.paymentLink.findFirst({
-        where: { userId, id: paymentLinkId },
+      where: { userId, id: paymentLinkId },
+      include: { transactions: { select: { id: true }, take: 1 } },
     });
+  
     if (!paymentLink) {
-        throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_NOT_FOUND);
+      throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_NOT_FOUND);
     }
-
-    if (paymentLink.status === "INACTIVE") {
-        throw new ServiceError(ServiceErrorCodes.PAYMENTLINK_NOT_FOUND);
-    }
-
-    return prisma.paymentLink.update({
+  
+    if (paymentLink.transactions.length > 0) {
+      return prisma.paymentLink.update({
         where: { id: paymentLinkId },
         data: { status: "INACTIVE" },
+      });
+    }
+  
+    return prisma.paymentLink.delete({
+      where: { id: paymentLinkId },
     });
-};
+  };
+  
 
 export const updatePaymentLinkStatus = async ({
     userId,
