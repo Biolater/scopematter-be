@@ -21,11 +21,11 @@ app.use(
 );
 app.use(cors());
 app.use(helmet());
-app.use(express.json());   // <- put this BEFORE routers
 app.use(morgan("dev"));
 
 // Routes
 app.use("/webhooks", webhookRouter);
+app.use(express.json());
 app.use("/api/v1/wallets", walletRouter);
 app.use("/api/v1/payment-links", paymentLinkRouter);
 
