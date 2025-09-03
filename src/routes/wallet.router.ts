@@ -1,4 +1,4 @@
-import { Router } from "express";
+/* import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { createWalletController, deleteWalletController, getWalletsController, setPrimaryWalletController } from "../controllers/wallet.controller";
 import { validateBody } from "../middleware/validate";
@@ -14,4 +14,4 @@ walletRouter.patch("/:id/primary", requireAuth, setPrimaryWalletController)
 
 walletRouter.delete("/:id", requireAuth, deleteWalletController)
 
-export default walletRouter;
+export default walletRouter; */

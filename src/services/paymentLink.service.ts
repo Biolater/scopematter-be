@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+/* import prisma from "../lib/prisma";
 import { CreatePaymentLinkInput, DeletePaymentLinkInput, GetPaymentLinkBySlugInput, GetPaymentLinksInput, UpdatePaymentLinkStatusInput } from "../lib/types/paymentLink";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
@@ -126,4 +126,4 @@ export const updatePaymentLinkStatus = async ({
       data: { status },
     });
   };
-  
+   */

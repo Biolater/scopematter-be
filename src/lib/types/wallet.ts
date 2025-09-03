@@ -1,4 +1,4 @@
-import { Chain } from "@prisma/client";
+/* import { Chain } from "@prisma/client";
 
 export interface GetUserWalletsInput {
   userId: string;
@@ -20,3 +20,4 @@ export interface DeleteWalletInput {
   userId: string;
   walletId: string;
 }
+ */

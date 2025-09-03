@@ -8,8 +8,8 @@ import { requireAuth } from "./middleware/auth"; // <- your custom one
 import webhookRouter from "./routes/webhook.router";
 import { sendSuccess } from "./utils/response";
 import { errorHandler } from "./middleware/error";
-import walletRouter from "./routes/wallet.router";
-import paymentLinkRouter from "./routes/paymentLink.router";
+import projectRouter from "./routes/project.router";
+
 const app = express();
 
 // Middlewares
@@ -26,12 +26,13 @@ app.use(morgan("dev"));
 // Routes
 app.use("/webhooks", webhookRouter);
 app.use(express.json());
-app.use("/api/v1/wallets", walletRouter);
-app.use("/api/v1/payment-links", paymentLinkRouter);
+
 
 app.get("/health", (_req: Request, res: Response) => {
     res.json({ status: "ok" });
 });
+
+app.use("/api/v1/projects", projectRouter);
 
 app.get("/clerk/:userId", async (req: Request, res: Response) => {
     try {

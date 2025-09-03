@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+/* import { Request, Response } from "express";
 import { sendSuccess } from "../utils/response";
 import {
   getUserWallets,
@@ -45,4 +45,4 @@ export async function deleteWalletController(req: Request, res: Response) {
   } catch (e) {
     return handleServiceError({ res, e, fallbackMsg: "Failed to delete wallet" });
   }
-}
+} */

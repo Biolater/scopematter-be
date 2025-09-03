@@ -1,4 +1,4 @@
-import { Asset, Chain, PaymentLinkStatus } from "@prisma/client";
+/* import { Asset, Chain, PaymentLinkStatus } from "@prisma/client";
 
 export interface CreatePaymentLinkInput {
     userId: string;
@@ -26,4 +26,4 @@ export interface UpdatePaymentLinkStatusInput {
     userId: string;
     paymentLinkId: string;
     status: PaymentLinkStatus;
-}
+} */

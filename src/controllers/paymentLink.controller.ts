@@ -1,4 +1,4 @@
-import { Request, Response } from "express";
+/* import { Request, Response } from "express";
 import { sendSuccess } from "../utils/response";
 import { createPaymentLink, deletePaymentLink, getPaymentLinkBySlug, getPaymentLinks, updatePaymentLinkStatus } from "../services/paymentLink.service";
 import { handleServiceError } from "../utils/error-mapper";
@@ -58,4 +58,4 @@ export async function updatePaymentLinkStatusController(req: Request, res: Respo
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Error updating payment link status" });
     }
-}
+} */

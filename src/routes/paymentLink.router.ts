@@ -1,4 +1,4 @@
-import { Router } from "express";
+/* import { Router } from "express";
 import { requireAuth } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { createPaymentLinkSchema } from "../validation/paymentLink.schema";
@@ -12,4 +12,4 @@ paymentLinkRouter.get("/:slug", getPaymentLinkBySlugController)
 paymentLinkRouter.patch("/:id/status", requireAuth, updatePaymentLinkStatusController)
 paymentLinkRouter.delete("/:id", requireAuth, deletePaymentLinkController)
 
-export default paymentLinkRouter;
+export default paymentLinkRouter; */

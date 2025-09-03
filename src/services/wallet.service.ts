@@ -1,4 +1,4 @@
-import prisma from "../lib/prisma";
+/* import prisma from "../lib/prisma";
 import {
   GetUserWalletsInput,
   CreateWalletInput,
@@ -82,3 +82,4 @@ export async function deleteWallet({ userId, walletId }: DeleteWalletInput) {
 
   return prisma.wallet.delete({ where: { id: walletId } });
 }
+ */
