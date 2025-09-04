@@ -32,6 +32,10 @@ export function handleServiceError({ res, e, fallbackMsg }: { res: Response, e: 
         return sendError({ res, message: "Payment link is already in this status", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
       case ServiceErrorCodes.PAYMENTLINK_HAS_TRANSACTIONS:
         return sendError({ res, message: "Payment link has transactions", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
+
+      // Project
+      case ServiceErrorCodes.PROJECT_NOT_FOUND:
+        return sendError({ res, message: "Project not found", code: ErrorCodes.NOT_FOUND, status: 404 });
       default:
         return sendError({ res, message: "Unknown error", code: ErrorCodes.DATABASE_ERROR, status: 500 });
     }
