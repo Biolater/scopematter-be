@@ -15,6 +15,15 @@ const mockPrisma = {
     create: jest.fn<any>(),
     update: jest.fn<any>(),
   },
+
+  scopeItem: {
+    create: jest.fn<any>(),
+    findMany: jest.fn<any>(),
+    findUnique: jest.fn<any>(),
+    findFirst: jest.fn<any>(),
+    deleteMany: jest.fn<any>(),
+    updateMany: jest.fn<any>(),
+  },
 };
 
 // Mock the prisma module

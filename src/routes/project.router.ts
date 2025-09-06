@@ -4,9 +4,12 @@ import { requireAuth } from "../middleware/auth";
 import { validateBody } from "../middleware/validate";
 import { createProjectSchema, updateProjectSchema } from "../validation/project.schema";
 import { createProjectController, deleteProjectController, getProjectController, getProjectsController, updateProjectController } from "../controllers/project.controller";
+import scopeItemRouter from "./scopeItem.router";
 
 
 const projectRouter = Router();
+
+
 
 projectRouter.post("/", requireAuth, validateBody(createProjectSchema), createProjectController)
 
@@ -17,5 +20,7 @@ projectRouter.get("/:id", requireAuth, getProjectController);
 projectRouter.put("/:id", requireAuth, validateBody(updateProjectSchema), updateProjectController);
 
 projectRouter.delete("/:id", requireAuth, deleteProjectController);
+
+projectRouter.use("/:projectId/scope-items", scopeItemRouter);
 
 export default projectRouter;   
