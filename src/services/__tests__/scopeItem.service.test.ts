@@ -1,4 +1,3 @@
-// services/__tests__/scopeItem.service.test.ts
 import {
     createScopeItem,
     getScopeItems,

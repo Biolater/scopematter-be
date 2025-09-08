@@ -11,6 +11,7 @@ datasource db {
 
 // ---------------- Enums ----------------
 enum RequestStatus {
+  PENDING
   IN_SCOPE
   OUT_OF_SCOPE
 }

@@ -19,6 +19,9 @@ export const ServiceErrorCodes = {
 
     // ScopeItem
     SCOPE_ITEM_NOT_FOUND: "SCOPE_ITEM_NOT_FOUND",
+
+    // Request
+    REQUEST_NOT_FOUND: "REQUEST_NOT_FOUND",
 } as const;
 
 export type ServiceErrorCode =

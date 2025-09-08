@@ -40,6 +40,10 @@ export function handleServiceError({ res, e, fallbackMsg }: { res: Response, e: 
       // ScopeItem
       case ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND:
         return sendError({ res, message: "Scope item not found", code: ErrorCodes.NOT_FOUND, status: 404 });
+
+      // Request
+      case ServiceErrorCodes.REQUEST_NOT_FOUND:
+        return sendError({ res, message: "Request not found", code: ErrorCodes.NOT_FOUND, status: 404 });
       default:
         return sendError({ res, message: "Unknown error", code: ErrorCodes.DATABASE_ERROR, status: 500 });
     }
