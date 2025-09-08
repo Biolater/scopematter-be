@@ -16,7 +16,7 @@ import {
   
     beforeEach(() => {
       jest.clearAllMocks();
-      mockPrisma.$transaction.mockImplementation((cb: (...args: any[]) => any) => cb(mockPrisma));
+      mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
     });
   
     // ---------------------------
@@ -32,7 +32,15 @@ import {
           updatedAt: now,
         };
   
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.create.mockResolvedValue(created);
   
         const result = await createScopeItem({
@@ -75,7 +83,15 @@ import {
           { id: 'i2', projectId, description: 'B', createdAt: now, updatedAt: now },
         ];
   
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.findMany.mockResolvedValue(items);
   
         const result = await getScopeItems({ projectId, userId });
@@ -90,7 +106,15 @@ import {
       });
   
       it('returns empty list when no items exist', async () => {
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.findMany.mockResolvedValue([]);
   
         const result = await getScopeItems({ projectId, userId });
@@ -116,7 +140,15 @@ import {
     // ---------------------------
     describe('deleteScopeItem', () => {
       it('deletes item scoped to the project and returns minimal payload', async () => {
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.deleteMany.mockResolvedValue({ count: 1 });
   
         const result = await deleteScopeItem({ projectId, id: scopeItemId, userId });
@@ -131,7 +163,15 @@ import {
       });
   
       it('throws SCOPE_ITEM_NOT_FOUND when item does not belong to project or missing', async () => {
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.deleteMany.mockResolvedValue({ count: 0 });
   
         await expect(
@@ -171,7 +211,15 @@ import {
           updatedAt: now,
         };
   
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 1 });
         mockPrisma.scopeItem.findUnique.mockResolvedValue(updatedItem);
   
@@ -196,7 +244,15 @@ import {
       });
   
       it('throws SCOPE_ITEM_NOT_FOUND when update count is 0', async () => {
-        mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+        mockPrisma.project.findFirst.mockResolvedValue({ 
+            id: projectId, 
+            userId, 
+            name: 'Test Project',
+            description: 'Test Description',
+            clientId: 'client123',
+            createdAt: now,
+            updatedAt: now
+        });
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 0 });
   
         await expect(

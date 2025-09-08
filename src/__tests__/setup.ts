@@ -1,43 +1,16 @@
-// Test setup file
-import { jest } from '@jest/globals';
+// __tests__/setup.ts
+import { mockDeep, DeepMockProxy } from "jest-mock-extended";
+import { PrismaClient } from "@prisma/client";
 
-// Mock Prisma client
-const mockPrisma = {
-  $transaction: jest.fn<any>(),
-  project: {
-    findFirst: jest.fn<any>(),
-    update: jest.fn<any>(),
-    create: jest.fn<any>(),
-    delete: jest.fn<any>(),
-    findMany: jest.fn<any>(),
-  },
-  client: {
-    create: jest.fn<any>(),
-    update: jest.fn<any>(),
-  },
+// Create a deep mock of PrismaClient
+const mockPrisma = mockDeep<PrismaClient>();
 
-  scopeItem: {
-    create: jest.fn<any>(),
-    findMany: jest.fn<any>(),
-    findUnique: jest.fn<any>(),
-    findFirst: jest.fn<any>(),
-    deleteMany: jest.fn<any>(),
-    updateMany: jest.fn<any>(),
-  },
-
-  request: {
-    create: jest.fn<any>(),
-    findMany: jest.fn<any>(),
-    findFirst: jest.fn<any>(),
-    update: jest.fn<any>(),
-  },
-};
-
-// Mock the prisma module
-jest.mock('../lib/prisma', () => ({
+// Replace the real Prisma client with our mock in all imports
+jest.mock("../lib/prisma", () => ({
   __esModule: true,
   default: mockPrisma,
 }));
 
-// Export mock for use in tests
+// Export for use in tests
 export { mockPrisma };
+export type MockPrisma = DeepMockProxy<PrismaClient>;

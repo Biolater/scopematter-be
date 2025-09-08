@@ -10,7 +10,7 @@ describe('updateProject', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
-    mockPrisma.$transaction.mockImplementation((callback: (...args: any[]) => any) => callback(mockPrisma));
+    mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
   });
 
   const mockExistingProject = {
@@ -119,7 +119,7 @@ describe('updateProject', () => {
 
   it('should handle empty strings for project fields by setting them to undefined', async () => {
     mockPrisma.project.findFirst.mockResolvedValue(mockExistingProject);
-    mockPrisma.project.update.mockResolvedValue({ ...mockExistingProject, name: null, description: null });
+    mockPrisma.project.update.mockResolvedValue({ ...mockExistingProject, name: '', description: '' });
 
     const data = {
       name: '',
@@ -137,7 +137,7 @@ describe('updateProject', () => {
   it('should handle empty strings for client fields by setting them to undefined', async () => {
     mockPrisma.project.findFirst.mockResolvedValue(mockExistingProject);
     mockPrisma.project.update.mockResolvedValue(mockExistingProject);
-    mockPrisma.client.update.mockResolvedValue({ ...mockExistingProject.client, name: null, email: null, company: null });
+    mockPrisma.client.update.mockResolvedValue({ ...mockExistingProject.client, name: '', email: '', company: '' });
 
     const data = {
       client: {

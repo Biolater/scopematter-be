@@ -12,9 +12,7 @@ describe("request.service", () => {
 
     beforeEach(() => {
         jest.clearAllMocks();
-        mockPrisma.$transaction.mockImplementation((cb: (...args: any[]) => any) =>
-            cb(mockPrisma),
-        );
+        mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
     });
 
     // ---------------------------
@@ -31,7 +29,15 @@ describe("request.service", () => {
                 updatedAt: now,
             };
 
-            mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+            mockPrisma.project.findFirst.mockResolvedValue({ 
+                id: projectId, 
+                userId, 
+                name: 'Test Project',
+                description: 'Test Description',
+                clientId: 'client123',
+                createdAt: now,
+                updatedAt: now
+            });
             mockPrisma.request.create.mockResolvedValue(created);
 
             const result = await createRequest({
@@ -88,7 +94,15 @@ describe("request.service", () => {
                 },
             ];
 
-            mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+            mockPrisma.project.findFirst.mockResolvedValue({ 
+                id: projectId, 
+                userId, 
+                name: 'Test Project',
+                description: 'Test Description',
+                clientId: 'client123',
+                createdAt: now,
+                updatedAt: now
+            });
             mockPrisma.request.findMany.mockResolvedValue(requests);
 
             const result = await getRequests({ projectId, userId });
@@ -104,7 +118,15 @@ describe("request.service", () => {
         });
 
         it("returns empty array when no requests exist", async () => {
-            mockPrisma.project.findFirst.mockResolvedValue({ id: projectId, userId });
+            mockPrisma.project.findFirst.mockResolvedValue({ 
+                id: projectId, 
+                userId, 
+                name: 'Test Project',
+                description: 'Test Description',
+                clientId: 'client123',
+                createdAt: now,
+                updatedAt: now
+            });
             mockPrisma.request.findMany.mockResolvedValue([]);
 
             const result = await getRequests({ projectId, userId });
@@ -218,21 +240,24 @@ describe("request.service", () => {
 
         it("filters out undefined fields from update", async () => {
             const updated = { ...existingRequest, description: "Cleaned" };
-
+          
             mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
             mockPrisma.request.update.mockResolvedValue(updated);
-
+          
             const result = await updateRequest({
-                id: requestId,
-                userId,
-                data: { description: "Cleaned", status: undefined as any },
+              id: requestId,
+              userId,
+              data: { description: "Cleaned", status: undefined as any },
             });
-
-            expect(mockPrisma.request.update).toHaveBeenCalledWith({
-                where: { id: requestId },
-                data: { description: "Cleaned" }, // no status here
-            });
+          
+            // Inspect the actual call
+            const call = mockPrisma.request.update.mock.calls[0][0] as any;
+          
+            expect(call.data).toEqual({ description: "Cleaned" }); // strict equality
+            expect(call.data).not.toHaveProperty("status"); // must not exist
+          
             expect(result.description).toBe("Cleaned");
-        });
+          });
+          
     });
 });
