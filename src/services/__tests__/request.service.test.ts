@@ -10,6 +10,16 @@ describe("request.service", () => {
     const requestId = "req_789";
     const now = new Date();
 
+    const mockProject = { 
+        id: projectId, 
+        userId, 
+        name: 'Test Project',
+        description: 'Test Description',
+        clientId: 'client123',
+        createdAt: now,
+        updatedAt: now
+    };
+
     beforeEach(() => {
         jest.clearAllMocks();
         mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
@@ -29,15 +39,7 @@ describe("request.service", () => {
                 updatedAt: now,
             };
 
-            mockPrisma.project.findFirst.mockResolvedValue({ 
-                id: projectId, 
-                userId, 
-                name: 'Test Project',
-                description: 'Test Description',
-                clientId: 'client123',
-                createdAt: now,
-                updatedAt: now
-            });
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
             mockPrisma.request.create.mockResolvedValue(created);
 
             const result = await createRequest({
@@ -55,6 +57,82 @@ describe("request.service", () => {
             expect(result).toEqual(created);
         });
 
+        it("creates request with minimal description", async () => {
+            const created = {
+                id: requestId,
+                projectId,
+                description: "A",
+                status: RequestStatus.PENDING,
+                createdAt: now,
+                updatedAt: now,
+            };
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.create.mockResolvedValue(created);
+
+            const result = await createRequest({
+                projectId,
+                description: "A",
+                userId,
+            });
+
+            expect(mockPrisma.request.create).toHaveBeenCalledWith({
+                data: { projectId, description: "A", status: "PENDING" },
+            });
+            expect(result).toEqual(created);
+        });
+
+        it("creates request with long description", async () => {
+            const longDescription = "A".repeat(2000);
+            const created = {
+                id: requestId,
+                projectId,
+                description: longDescription,
+                status: RequestStatus.PENDING,
+                createdAt: now,
+                updatedAt: now,
+            };
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.create.mockResolvedValue(created);
+
+            const result = await createRequest({
+                projectId,
+                description: longDescription,
+                userId,
+            });
+
+            expect(mockPrisma.request.create).toHaveBeenCalledWith({
+                data: { projectId, description: longDescription, status: "PENDING" },
+            });
+            expect(result).toEqual(created);
+        });
+
+        it("always creates request with PENDING status", async () => {
+            const created = {
+                id: requestId,
+                projectId,
+                description: "Test request",
+                status: RequestStatus.PENDING,
+                createdAt: now,
+                updatedAt: now,
+            };
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.create.mockResolvedValue(created);
+
+            const result = await createRequest({
+                projectId,
+                description: "Test request",
+                userId,
+            });
+
+            expect(mockPrisma.request.create).toHaveBeenCalledWith({
+                data: { projectId, description: "Test request", status: "PENDING" },
+            });
+            expect(result.status).toBe(RequestStatus.PENDING);
+        });
+
         it("throws PROJECT_NOT_FOUND when project missing or not owned", async () => {
             mockPrisma.project.findFirst.mockResolvedValue(null);
 
@@ -67,6 +145,48 @@ describe("request.service", () => {
             ).rejects.toHaveProperty("code", ServiceErrorCodes.PROJECT_NOT_FOUND);
 
             expect(mockPrisma.request.create).not.toHaveBeenCalled();
+        });
+
+        it("throws PROJECT_NOT_FOUND when project belongs to different user", async () => {
+            mockPrisma.project.findFirst.mockResolvedValue(null);
+
+            await expect(
+                createRequest({ projectId, description: "New req", userId: "different-user" }),
+            ).rejects.toThrow(ServiceError);
+
+            await expect(
+                createRequest({ projectId, description: "New req", userId: "different-user" }),
+            ).rejects.toHaveProperty("code", ServiceErrorCodes.PROJECT_NOT_FOUND);
+
+            expect(mockPrisma.request.create).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during project lookup", async () => {
+            mockPrisma.project.findFirst.mockRejectedValue(new Error("Database connection failed"));
+
+            await expect(
+                createRequest({ projectId, description: "New req", userId }),
+            ).rejects.toThrow("Database connection failed");
+
+            expect(mockPrisma.request.create).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during request creation", async () => {
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.create.mockRejectedValue(new Error("Creation failed"));
+
+            await expect(
+                createRequest({ projectId, description: "New req", userId }),
+            ).rejects.toThrow("Creation failed");
+        });
+
+        it("handles transaction rollback on any error", async () => {
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.create.mockRejectedValue(new Error("Transaction error"));
+
+            await expect(
+                createRequest({ projectId, description: "New req", userId }),
+            ).rejects.toThrow("Transaction error");
         });
     });
 
@@ -94,15 +214,7 @@ describe("request.service", () => {
                 },
             ];
 
-            mockPrisma.project.findFirst.mockResolvedValue({ 
-                id: projectId, 
-                userId, 
-                name: 'Test Project',
-                description: 'Test Description',
-                clientId: 'client123',
-                createdAt: now,
-                updatedAt: now
-            });
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
             mockPrisma.request.findMany.mockResolvedValue(requests);
 
             const result = await getRequests({ projectId, userId });
@@ -117,22 +229,110 @@ describe("request.service", () => {
             expect(result).toEqual(requests);
         });
 
+        it("returns requests ordered by creation date (newest first)", async () => {
+            const requests = [
+                {
+                    id: "r3",
+                    projectId,
+                    description: "Newest",
+                    status: RequestStatus.PENDING,
+                    createdAt: new Date("2023-01-03"),
+                    updatedAt: now,
+                },
+                {
+                    id: "r2",
+                    projectId,
+                    description: "Middle",
+                    status: RequestStatus.IN_SCOPE,
+                    createdAt: new Date("2023-01-02"),
+                    updatedAt: now,
+                },
+                {
+                    id: "r1",
+                    projectId,
+                    description: "Oldest",
+                    status: RequestStatus.OUT_OF_SCOPE,
+                    createdAt: new Date("2023-01-01"),
+                    updatedAt: now,
+                },
+            ];
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.findMany.mockResolvedValue(requests);
+
+            const result = await getRequests({ projectId, userId });
+
+            expect(result[0].description).toBe("Newest");
+            expect(result[1].description).toBe("Middle");
+            expect(result[2].description).toBe("Oldest");
+        });
+
+        it("returns requests with all possible statuses", async () => {
+            const requests = [
+                {
+                    id: "r1",
+                    projectId,
+                    description: "Pending request",
+                    status: RequestStatus.PENDING,
+                    createdAt: now,
+                    updatedAt: now,
+                },
+                {
+                    id: "r2",
+                    projectId,
+                    description: "In scope request",
+                    status: RequestStatus.IN_SCOPE,
+                    createdAt: now,
+                    updatedAt: now,
+                },
+                {
+                    id: "r3",
+                    projectId,
+                    description: "Out of scope request",
+                    status: RequestStatus.OUT_OF_SCOPE,
+                    createdAt: now,
+                    updatedAt: now,
+                },
+            ];
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.findMany.mockResolvedValue(requests);
+
+            const result = await getRequests({ projectId, userId });
+
+            expect(result).toHaveLength(3);
+            expect(result.map(r => r.status)).toContain(RequestStatus.PENDING);
+            expect(result.map(r => r.status)).toContain(RequestStatus.IN_SCOPE);
+            expect(result.map(r => r.status)).toContain(RequestStatus.OUT_OF_SCOPE);
+        });
+
         it("returns empty array when no requests exist", async () => {
-            mockPrisma.project.findFirst.mockResolvedValue({ 
-                id: projectId, 
-                userId, 
-                name: 'Test Project',
-                description: 'Test Description',
-                clientId: 'client123',
-                createdAt: now,
-                updatedAt: now
-            });
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
             mockPrisma.request.findMany.mockResolvedValue([]);
 
             const result = await getRequests({ projectId, userId });
 
             expect(Array.isArray(result)).toBe(true);
             expect(result).toHaveLength(0);
+        });
+
+        it("returns large number of requests correctly", async () => {
+            const requests = Array.from({ length: 100 }, (_, i) => ({
+                id: `req_${i}`,
+                projectId,
+                description: `Request ${i}`,
+                status: RequestStatus.PENDING,
+                createdAt: now,
+                updatedAt: now,
+            }));
+
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.findMany.mockResolvedValue(requests);
+
+            const result = await getRequests({ projectId, userId });
+
+            expect(result).toEqual(requests);
+            expect(result).toHaveLength(100);
         });
 
         it("throws PROJECT_NOT_FOUND if project is not owned", async () => {
@@ -147,6 +347,40 @@ describe("request.service", () => {
             );
 
             expect(mockPrisma.request.findMany).not.toHaveBeenCalled();
+        });
+
+        it("throws PROJECT_NOT_FOUND if project belongs to different user", async () => {
+            mockPrisma.project.findFirst.mockResolvedValue(null);
+
+            await expect(getRequests({ projectId, userId: "different-user" })).rejects.toThrow(
+                ServiceError,
+            );
+            await expect(getRequests({ projectId, userId: "different-user" })).rejects.toHaveProperty(
+                "code",
+                ServiceErrorCodes.PROJECT_NOT_FOUND,
+            );
+
+            expect(mockPrisma.request.findMany).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during project lookup", async () => {
+            mockPrisma.project.findFirst.mockRejectedValue(new Error("Database error"));
+
+            await expect(getRequests({ projectId, userId })).rejects.toThrow("Database error");
+            expect(mockPrisma.request.findMany).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during requests fetch", async () => {
+            mockPrisma.project.findFirst.mockResolvedValue(mockProject);
+            mockPrisma.request.findMany.mockRejectedValue(new Error("Fetch failed"));
+
+            await expect(getRequests({ projectId, userId })).rejects.toThrow("Fetch failed");
+        });
+
+        it("handles transaction rollback on any error", async () => {
+            mockPrisma.project.findFirst.mockRejectedValue(new Error("Transaction error"));
+
+            await expect(getRequests({ projectId, userId })).rejects.toThrow("Transaction error");
         });
     });
 
@@ -185,7 +419,26 @@ describe("request.service", () => {
             expect(result.description).toBe("New description");
         });
 
-        it("updates request status", async () => {
+        it("updates request status to IN_SCOPE", async () => {
+            const updated = { ...existingRequest, status: RequestStatus.IN_SCOPE };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { status: RequestStatus.IN_SCOPE },
+            });
+
+            expect(mockPrisma.request.update).toHaveBeenCalledWith({
+                where: { id: requestId },
+                data: { status: RequestStatus.IN_SCOPE },
+            });
+            expect(result.status).toBe(RequestStatus.IN_SCOPE);
+        });
+
+        it("updates request status to OUT_OF_SCOPE", async () => {
             const updated = { ...existingRequest, status: RequestStatus.OUT_OF_SCOPE };
 
             mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
@@ -202,6 +455,36 @@ describe("request.service", () => {
                 data: { status: RequestStatus.OUT_OF_SCOPE },
             });
             expect(result.status).toBe(RequestStatus.OUT_OF_SCOPE);
+        });
+
+        it("updates both description and status simultaneously", async () => {
+            const updated = { 
+                ...existingRequest, 
+                description: "Updated description",
+                status: RequestStatus.IN_SCOPE 
+            };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { 
+                    description: "Updated description",
+                    status: RequestStatus.IN_SCOPE 
+                },
+            });
+
+            expect(mockPrisma.request.update).toHaveBeenCalledWith({
+                where: { id: requestId },
+                data: { 
+                    description: "Updated description",
+                    status: RequestStatus.IN_SCOPE 
+                },
+            });
+            expect(result.description).toBe("Updated description");
+            expect(result.status).toBe(RequestStatus.IN_SCOPE);
         });
 
         it("handles partial updates (only one field)", async () => {
@@ -224,6 +507,55 @@ describe("request.service", () => {
             expect(result.status).toBe(RequestStatus.PENDING); // unchanged
         });
 
+        it("handles update with minimal description", async () => {
+            const updated = { ...existingRequest, description: "A" };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { description: "A" },
+            });
+
+            expect(result.description).toBe("A");
+        });
+
+        it("handles update with long description", async () => {
+            const longDescription = "A".repeat(2000);
+            const updated = { ...existingRequest, description: longDescription };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { description: longDescription },
+            });
+
+            expect(result.description).toBe(longDescription);
+        });
+
+        it("handles update with same values (no-op)", async () => {
+            const updated = { ...existingRequest };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { 
+                    description: existingRequest.description,
+                    status: RequestStatus.IN_SCOPE 
+                },
+            });
+
+            expect(result).toEqual(updated);
+        });
+
         it("throws REQUEST_NOT_FOUND when not owned or missing", async () => {
             mockPrisma.request.findFirst.mockResolvedValue(null);
 
@@ -233,6 +565,20 @@ describe("request.service", () => {
 
             await expect(
                 updateRequest({ id: requestId, userId, data: { description: "X" } }),
+            ).rejects.toHaveProperty("code", ServiceErrorCodes.REQUEST_NOT_FOUND);
+
+            expect(mockPrisma.request.update).not.toHaveBeenCalled();
+        });
+
+        it("throws REQUEST_NOT_FOUND when request belongs to different user", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(null);
+
+            await expect(
+                updateRequest({ id: requestId, userId: "different-user", data: { description: "X" } }),
+            ).rejects.toThrow(ServiceError);
+
+            await expect(
+                updateRequest({ id: requestId, userId: "different-user", data: { description: "X" } }),
             ).rejects.toHaveProperty("code", ServiceErrorCodes.REQUEST_NOT_FOUND);
 
             expect(mockPrisma.request.update).not.toHaveBeenCalled();
@@ -257,7 +603,98 @@ describe("request.service", () => {
             expect(call.data).not.toHaveProperty("status"); // must not exist
           
             expect(result.description).toBe("Cleaned");
-          });
-          
+        });
+
+        it("handles empty data object", async () => {
+            const updated = { ...existingRequest };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: {},
+            });
+
+            expect(mockPrisma.request.update).toHaveBeenCalledWith({
+                where: { id: requestId },
+                data: {},
+            });
+            expect(result).toEqual(updated);
+        });
+
+        it("handles data with all undefined values", async () => {
+            const updated = { ...existingRequest };
+
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: requestId,
+                userId,
+                data: { 
+                    description: undefined as any,
+                    status: undefined as any 
+                },
+            });
+
+            expect(mockPrisma.request.update).toHaveBeenCalledWith({
+                where: { id: requestId },
+                data: {},
+            });
+            expect(result).toEqual(updated);
+        });
+
+        it("handles database errors during request lookup", async () => {
+            mockPrisma.request.findFirst.mockRejectedValue(new Error("Database error"));
+
+            await expect(
+                updateRequest({ id: requestId, userId, data: { description: "Update" } }),
+            ).rejects.toThrow("Database error");
+
+            expect(mockPrisma.request.update).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during update", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.update.mockRejectedValue(new Error("Update failed"));
+
+            await expect(
+                updateRequest({ id: requestId, userId, data: { description: "Update" } }),
+            ).rejects.toThrow("Update failed");
+        });
+
+        it("handles transaction rollback on any error", async () => {
+            mockPrisma.request.findFirst.mockRejectedValue(new Error("Transaction error"));
+
+            await expect(
+                updateRequest({ id: requestId, userId, data: { description: "Update" } }),
+            ).rejects.toThrow("Transaction error");
+        });
+
+        it("handles different request IDs correctly", async () => {
+            const differentRequestId = "req_999";
+            const differentRequest = { ...existingRequest, id: differentRequestId };
+            const updated = { ...differentRequest, description: "Updated" };
+
+            mockPrisma.request.findFirst.mockResolvedValue(differentRequest);
+            mockPrisma.request.update.mockResolvedValue(updated);
+
+            const result = await updateRequest({
+                id: differentRequestId,
+                userId,
+                data: { description: "Updated" },
+            });
+
+            expect(mockPrisma.request.findFirst).toHaveBeenCalledWith({
+                where: { id: differentRequestId, project: { userId } },
+            });
+            expect(mockPrisma.request.update).toHaveBeenCalledWith({
+                where: { id: differentRequestId },
+                data: { description: "Updated" },
+            });
+            expect(result).toEqual(updated);
+        });
     });
 });

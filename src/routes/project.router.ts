@@ -6,7 +6,7 @@ import { createProjectSchema, updateProjectSchema } from "../validation/project.
 import { createProjectController, deleteProjectController, getProjectController, getProjectsController, updateProjectController } from "../controllers/project.controller";
 import scopeItemRouter from "./scopeItem.router";
 import requestRouter from "./request.router";
-
+import changeOrderRouter from "./changeOrder.router";
 
 const projectRouter = Router();
 
@@ -25,5 +25,7 @@ projectRouter.delete("/:id", requireAuth, deleteProjectController);
 projectRouter.use("/:projectId/scope-items", scopeItemRouter);
 
 projectRouter.use("/:projectId/requests", requestRouter);
+
+projectRouter.use("/:projectId/change-orders", changeOrderRouter);
 
 export default projectRouter;   
