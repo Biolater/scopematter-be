@@ -22,21 +22,27 @@ enum ChangeOrderStatus {
   REJECTED
 }
 
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
 // ---------------- Models ----------------
 
 // Clerk-backed freelancer user
 model AppUser {
-  id        String   @id @default(cuid())
-  clerkId   String   @unique
-  email     String   @unique
+  id      String @id @default(cuid())
+  clerkId String @unique
+  email   String @unique
 
   firstName String?
   lastName  String?
   imageUrl  String?
-  isActive  Boolean  @default(true)
+  isActive  Boolean @default(true)
 
-  projects       Project[]
-  changeOrders   ChangeOrder[]
+  projects     Project[]
+  changeOrders ChangeOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -44,12 +50,12 @@ model AppUser {
 
 // Client (not logging in, but kept for reference / PDF output)
 model Client {
-  id        String   @id @default(cuid())
-  name      String
-  email     String?
-  company   String?
+  id      String  @id @default(cuid())
+  name    String
+  email   String?
+  company String?
 
-  projects  Project[]
+  projects Project[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -57,12 +63,14 @@ model Client {
 
 // Project created by freelancer
 model Project {
-  id          String       @id @default(cuid())
+  id          String  @id @default(cuid())
   name        String
   description String?
 
-  userId  String
-  user    AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status ProjectStatus @default(PENDING)
+
+  userId String
+  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   clientId String
   client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
@@ -77,7 +85,7 @@ model Project {
 
 // Items explicitly agreed in project scope
 model ScopeItem {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -89,7 +97,7 @@ model ScopeItem {
 
 // Requests made by client during project
 model Request {
-  id        String   @id @default(cuid())
+  id        String  @id @default(cuid())
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
@@ -104,21 +112,21 @@ model Request {
 
 // Formalized out-of-scope work
 model ChangeOrder {
-  id        String   @id @default(cuid())
+  id String @id @default(cuid())
 
-  requestId String   @unique
-  request   Request  @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  requestId String  @unique
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
   projectId String
-  project   Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   userId String
   user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   // Pricing / delivery terms
-  priceUsd   Decimal   @db.Decimal(10,2)
-  extraDays  Int?
-  status     ChangeOrderStatus @default(PENDING)
+  priceUsd  Decimal           @db.Decimal(10, 2)
+  extraDays Int?
+  status    ChangeOrderStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt

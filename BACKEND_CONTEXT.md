@@ -1,0 +1,182 @@
+## PayLynk-BE Backend Context (for AI assistants)
+
+This document summarizes the backend’s structure, API routes, controllers, services, domain types, validation schemas, and Prisma models. It is designed to give AI systems enough context to answer questions accurately without scanning the entire codebase.
+
+### Runtime and Entry
+- Express app bootstrapped in `src/index.ts`.
+- Global middleware: Clerk (`clerkMiddleware`), CORS, Helmet, Morgan, JSON body parsing.
+- Auth: `requireAuth` checks Clerk session and loads `AppUser` to `req.user`.
+- Error handling: `errorHandler` returns normalized error responses.
+- Health check: `GET /health` returns `{ status: "ok" }`.
+- Webhook endpoint group: `/webhooks`.
+- API base path: `/api/v1`.
+
+### Environment
+`src/config/env.ts` exposes:
+- `PORT`, `NODE_ENV`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `DIRECT_URL`, `CLERK_WEBHOOK_SECRET`, `INTERNAL_API_SECRET`.
+
+### Auth and Request Context
+- `src/middleware/auth.ts` uses `@clerk/express` `getAuth(req)` to resolve `userId`.
+- Loads `AppUser` from DB and assigns it to `req.user`.
+- `types/express/index.d.ts` augments Express Request: `user: AppUser`.
+
+### Response Shape
+All controllers use helpers in `src/utils/response.ts`:
+- Success: `{ success: true, data: T, error: null, meta: {} }`.
+- Error: `{ success: false, data: null, error: { message, code, details? }, meta: {} }`.
+- Generic error codes in `src/utils/error-codes.ts`.
+- Service error mapping in `src/utils/error-mapper.ts` using `ServiceErrorCodes`.
+
+### Data Model (Prisma)
+Defined in `prisma/schema.prisma`:
+- Enums:
+  - `RequestStatus`: `PENDING | IN_SCOPE | OUT_OF_SCOPE`
+  - `ChangeOrderStatus`: `PENDING | APPROVED | REJECTED`
+  - `ProjectStatus`: `PENDING | IN_PROGRESS | COMPLETED`
+- Models:
+  - `AppUser { id, clerkId (unique), email (unique), firstName?, lastName?, imageUrl?, isActive, projects[], changeOrders[], createdAt, updatedAt }`
+  - `Client { id, name, email?, company?, projects[], createdAt, updatedAt }`
+  - `Project { id, name, description?, status: ProjectStatus, userId -> AppUser, clientId -> Client, scopeItems[], requests[], changeOrders[], createdAt, updatedAt }`
+  - `ScopeItem { id, projectId -> Project, description, createdAt, updatedAt }`
+  - `Request { id, projectId -> Project, description, status: RequestStatus, changeOrder?, createdAt, updatedAt }`
+  - `ChangeOrder { id, requestId (unique) -> Request, projectId -> Project, userId -> AppUser, priceUsd Decimal(10,2), extraDays?, status: ChangeOrderStatus, createdAt, updatedAt }`
+
+### API Routes (mounted in `src/index.ts`)
+- `/webhooks` → `src/routes/webhook.router.ts`
+  - `POST /webhooks/clerk` (raw body) → `handleClerkWebhook` (Clerk events)
+- `/api/v1/projects` → `src/routes/project.router.ts` (all require auth)
+  - `POST /` create project
+  - `GET /` list projects
+  - `GET /:id` get project
+  - `PUT /:id` update project
+  - `DELETE /:id` delete project
+  - Nested:
+    - `/:projectId/scope-items` → `src/routes/scopeItem.router.ts`
+      - `POST /` create scope item
+      - `GET /` list scope items
+      - `DELETE /:id` delete scope item
+      - `PUT /:id` update scope item
+    - `/:projectId/requests` → `src/routes/request.router.ts`
+      - `POST /` create request
+      - `GET /` list requests
+      - `PUT /:id` update request
+    - `/:projectId/change-orders` → `src/routes/changeOrder.router.ts`
+      - `POST /` create change order
+      - `GET /` list change orders
+      - `GET /:id` get change order
+      - `PUT /:id` update change order
+- `/api/v1/dashboard` → `src/routes/dashboard.router.ts` (auth required)
+  - `GET /` get dashboard metrics and activity
+- Misc endpoints in `src/index.ts`:
+  - `GET /health`
+  - `GET /protected` (auth required) returns user context
+  - `GET /clerk/:userId` internal util (requires `x-internal-secret`)
+
+### Controllers (selected)
+- Project: `src/controllers/project.controller.ts`
+  - create/get list/get one/update/delete using service layer; injects `req.user.id` and Zod-validated DTOs.
+- ScopeItem: `src/controllers/scopeItem.controller.ts`
+  - CRUD within a project; validates ownership with `userId`.
+- Request: `src/controllers/request.controller.ts`
+  - Create/list/update; status can move from `PENDING` to `IN_SCOPE` or `OUT_OF_SCOPE`.
+- ChangeOrder: `src/controllers/changeOrder.controller.ts`
+  - Create/list/get/update; only for `OUT_OF_SCOPE` requests without existing change order.
+- Dashboard: `src/controllers/dashboard.controller.ts`
+  - Get dashboard metrics, activity feed, and quick stats for authenticated user.
+- Webhook: `src/controllers/clerk.controller.ts`
+  - Verifies Svix signature and calls `upsertAppUser`.
+
+### Services and Core Business Rules
+- Project: `src/services/project.service.ts`
+  - Create: transactionally creates `Client` then `Project`.
+  - Get list: filters by `userId`, includes `client` summary and counts.
+  - Get one: includes `client`, `scopeItems`, `requests` (with nested `changeOrder`), and `changeOrders`.
+  - Update: partial update of `Project` and optionally `Client` fields; strips empty strings to `undefined`.
+  - Delete: ensures ownership.
+- ScopeItem: `src/services/scopeItem.service.ts`
+  - All operations verify the project belongs to the user.
+- Request: `src/services/request.service.ts`
+  - Create: defaults to `PENDING`.
+  - Update: allows changing `description` and `status` (validated by Zod); ownership enforced.
+- ChangeOrder: `src/services/changeOrder.service.ts`
+  - Create: only from `Request` in `OUT_OF_SCOPE`, without existing change order, and owned by user.
+  - Update: only when current status is `PENDING`; validates allowed transitions; returns entity with `request` summary.
+- Dashboard: `src/services/dashboard.service.ts`
+  - Aggregates metrics (projects, scope items, requests, change orders) with growth calculations.
+  - Generates recent activity feed from projects, requests, and change orders.
+  - Provides quick stats for completed projects, pending requests, and change order breakdowns.
+- Clerk: `src/services/clerk.service.ts`
+  - Upsert `AppUser` on user create/update; mark inactive on `user.deleted`.
+
+### Validation Schemas (Zod → inferred TS types)
+- Project `src/validation/project.schema.ts`
+  - `createProjectSchema`: `{ name: string (1..100), description?: string (<=500), client: { name: string, email?: email, company?: string } }`
+  - `updateProjectSchema`: partial; empty strings coerced to `undefined` via union with `""`.
+  - Types: `CreateProjectSchema`, `UpdateProjectSchema`.
+- ScopeItem `src/validation/scopeItem.schema.ts`
+  - `createScopeItemSchema`: `{ description: string (1..1000) }`
+  - `deleteScopeItemSchema`: `{ id: cuid }`
+  - `updateScopeItemSchema`: same as create.
+  - Types: `CreateScopeItemSchema`, `DeleteScopeItemSchema`, `UpdateScopeItemSchema`.
+- Request `src/validation/request.schema.ts`
+  - `createRequestSchema`: `{ description: string (1..2000) }`
+  - `updateRequestSchema`: `{ description?: string (1..2000), status?: enum(IN_SCOPE | OUT_OF_SCOPE) }`.
+  - Types: `CreateRequestSchema`, `UpdateRequestSchema`.
+- ChangeOrder `src/validation/changeOrder.schema.ts`
+  - `createChangeOrderSchema`: `{ requestId: cuid, priceUsd: number (positive, <= 999999.99, 2 decimals), extraDays?: int(1..365) }`
+  - `updateChangeOrderSchema`: all optional; `status` in `PENDING | APPROVED | REJECTED`.
+  - Types: `CreateChangeOrderSchema`, `UpdateChangeOrderSchema`.
+
+### Domain Service Input Types (TypeScript)
+- Project `src/lib/types/project.ts`
+  - `CreateProjectInput`, `GetProjectsInput`, `GetProjectInput`, `DeleteProjectInput`, `UpdateProjectInput`, `ProjectUpdateData`, `ClientUpdateData`.
+- ScopeItem `src/lib/types/scopeItem.ts`
+  - `CreateScopeItemInput`, `GetScopeItemsInput`, `DeleteScopeItemInput`, `UpdateScopeItemInput`.
+- Request `src/lib/types/request.ts`
+  - `CreateRequestInput`, `GetRequestsInput`, `UpdateRequestInput`.
+- ChangeOrder `src/lib/types/changeOrder.ts`
+  - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`.
+- Dashboard `src/lib/types/dashboard.ts`
+  - `GetDashboardInput`, `GetDashboardOutput`, `DashboardMetrics`, `DashboardActivity`, `DashboardActivityType`, `DashboardQuickStats`.
+
+### Prisma Types (from `@prisma/client`)
+- Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`.
+- Enums: `RequestStatus`, `ChangeOrderStatus`, `ProjectStatus`.
+
+### Middleware and Utilities
+- `requireAuth` ensures `req.user: AppUser` and `401/404` otherwise.
+- `validateBody(schema)` applies Zod validation and formats errors via `formatZodError`.
+- `errorHandler` maps unhandled errors to a generic `500`.
+- `handleServiceError` maps domain errors to HTTP errors using `ServiceErrorCodes`.
+
+### Endpoint Reference (concise)
+- Projects
+  - `POST /api/v1/projects` body: `CreateProjectSchema` → Project
+  - `GET /api/v1/projects` → Project[] (summary with counts)
+  - `GET /api/v1/projects/:id` → Project (expanded)
+  - `PUT /api/v1/projects/:id` body: `UpdateProjectSchema` → Project
+  - `DELETE /api/v1/projects/:id` → deleted Project
+- Scope Items
+  - `POST /api/v1/projects/:projectId/scope-items` body: `CreateScopeItemSchema` → ScopeItem
+  - `GET /api/v1/projects/:projectId/scope-items` → ScopeItem[]
+  - `DELETE /api/v1/projects/:projectId/scope-items/:id` → `{ id }`
+  - `PUT /api/v1/projects/:projectId/scope-items/:id` body: `UpdateScopeItemSchema` → ScopeItem
+- Requests
+  - `POST /api/v1/projects/:projectId/requests` body: `CreateRequestSchema` → Request
+  - `GET /api/v1/projects/:projectId/requests` → Request[]
+  - `PUT /api/v1/projects/:projectId/requests/:id` body: `UpdateRequestSchema` → Request
+- Change Orders
+  - `POST /api/v1/projects/:projectId/change-orders` body: `CreateChangeOrderSchema` → ChangeOrder
+  - `GET /api/v1/projects/:projectId/change-orders` → ChangeOrder[] (with request summary)
+  - `GET /api/v1/projects/:projectId/change-orders/:id` → ChangeOrder (with request summary)
+  - `PUT /api/v1/projects/:projectId/change-orders/:id` body: `UpdateChangeOrderSchema` → ChangeOrder
+- Dashboard
+  - `GET /api/v1/dashboard` → Dashboard metrics, recent activity, and quick stats
+- Webhooks
+  - `POST /webhooks/clerk` raw JSON, Svix headers required
+
+### Notes for AI Usage
+- Always assume endpoints require Clerk auth unless explicitly public (e.g., health, webhook).
+- Use `ErrorCodes` and `ServiceErrorCodes` to map domain errors to client-facing messages.
+- Use Zod schemas as the source of truth for request validation and shape.
+- Prisma relations enforce ownership and on-delete cascades as per schema.

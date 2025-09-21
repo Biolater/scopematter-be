@@ -9,6 +9,7 @@ import webhookRouter from "./routes/webhook.router";
 import { sendSuccess } from "./utils/response";
 import { errorHandler } from "./middleware/error";
 import projectRouter from "./routes/project.router";
+import dashboardRouter from "./routes/dashboard.router";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.get("/health", (_req: Request, res: Response) => {
 });
 
 app.use("/api/v1/projects", projectRouter);
+app.use("/api/v1/dashboard", dashboardRouter);
 
 app.get("/clerk/:userId", async (req: Request, res: Response) => {
     try {

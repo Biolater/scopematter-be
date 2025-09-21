@@ -2,7 +2,7 @@ import { createRequest, getRequests, updateRequest } from "../request.service";
 import { mockPrisma } from "../../__tests__/setup";
 import { ServiceError } from "../../utils/service-error";
 import { ServiceErrorCodes } from "../../utils/service-error-codes";
-import { RequestStatus } from "@prisma/client";
+import { RequestStatus, ProjectStatus } from "@prisma/client";
 
 describe("request.service", () => {
     const projectId = "proj_123";
@@ -15,6 +15,7 @@ describe("request.service", () => {
         userId, 
         name: 'Test Project',
         description: 'Test Description',
+        status: ProjectStatus.PENDING,
         clientId: 'client123',
         createdAt: now,
         updatedAt: now

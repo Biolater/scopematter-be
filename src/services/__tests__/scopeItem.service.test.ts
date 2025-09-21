@@ -7,6 +7,7 @@ import {
   import { mockPrisma } from '../../__tests__/setup';
   import { ServiceError } from '../../utils/service-error';
   import { ServiceErrorCodes } from '../../utils/service-error-codes';
+  import { ProjectStatus } from '@prisma/client';
   
   describe('scopeItem.service', () => {
     const projectId = 'proj_123';
@@ -19,6 +20,7 @@ import {
         userId, 
         name: 'Test Project',
         description: 'Test Description',
+        status: ProjectStatus.PENDING,
         clientId: 'client123',
         createdAt: now,
         updatedAt: now

@@ -7,7 +7,7 @@ import {
 import { mockPrisma } from '../../__tests__/setup';
 import { ServiceError } from '../../utils/service-error';
 import { ServiceErrorCodes } from '../../utils/service-error-codes';
-import { ChangeOrderStatus, RequestStatus, Project, Client, ChangeOrder, Request } from '@prisma/client';
+import { ChangeOrderStatus, RequestStatus, Project, Client, ChangeOrder, Request, ProjectStatus } from '@prisma/client';
 
 // Test data interfaces
 interface MockProject extends Omit<Project, 'client'> {
@@ -43,6 +43,7 @@ describe('changeOrder.service', () => {
             userId,
             name: 'Test Project',
             description: 'Test Description',
+            status: ProjectStatus.PENDING,
             clientId: 'client123',
             createdAt: now,
             updatedAt: now,
@@ -250,6 +251,7 @@ describe('changeOrder.service', () => {
             userId,
             name: 'Test Project',
             description: 'Test Description',
+            status: ProjectStatus.PENDING,
             clientId: 'client123',
             createdAt: now,
             updatedAt: now,
@@ -363,6 +365,7 @@ describe('changeOrder.service', () => {
             userId,
             name: 'Test Project',
             description: 'Test Description',
+            status: ProjectStatus.PENDING,
             clientId: 'client123',
             createdAt: now,
             updatedAt: now,
@@ -460,6 +463,7 @@ describe('changeOrder.service', () => {
             userId,
             name: 'Test Project',
             description: 'Test Description',
+            status: ProjectStatus.PENDING,
             clientId: 'client123',
             createdAt: now,
             updatedAt: now,
