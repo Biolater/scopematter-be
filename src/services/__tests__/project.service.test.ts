@@ -189,6 +189,9 @@ describe('project.service', () => {
             },
           },
         },
+        orderBy: {
+          createdAt: 'desc',
+        },
       });
       expect(result).toEqual(projectsWithCounts);
     });
