@@ -1,3 +1,4 @@
+import { ProjectStatus } from "@prisma/client";
 import { UpdateProjectSchema } from "../../validation/project.schema";
 
 export interface CreateProjectInput {
@@ -34,6 +35,7 @@ export interface UpdateProjectInput {
 export interface ProjectUpdateData {
   name?: string;
   description?: string;
+  status?: ProjectStatus;
 }
 
 export interface ClientUpdateData {

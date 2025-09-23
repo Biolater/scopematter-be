@@ -1,3 +1,4 @@
+import { ProjectStatus } from "@prisma/client";
 import { z } from "zod";
 
 export const createProjectSchema = z.object({
@@ -38,6 +39,7 @@ export const updateProjectSchema = z.object({
     .max(500, "Description must be at most 500 characters")
     .optional()
     .or(z.literal("")),
+  status: z.enum([ProjectStatus.PENDING, ProjectStatus.IN_PROGRESS, ProjectStatus.COMPLETED]).optional(),
   client: z
     .object({
       name: z.string().min(1, "Client name is required").optional().or(z.literal("")),

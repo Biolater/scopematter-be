@@ -122,6 +122,10 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
             projectUpdateData.description = data.description || undefined;
         }
 
+        if (data.status !== undefined) {
+            projectUpdateData.status = data.status;
+          }
+
         // Update project
         const updatedProject = await tx.project.update({
             where: { id },
