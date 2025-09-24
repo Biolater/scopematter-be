@@ -7,7 +7,7 @@ import {
   import { mockPrisma } from '../../__tests__/setup';
   import { ServiceError } from '../../utils/service-error';
   import { ServiceErrorCodes } from '../../utils/service-error-codes';
-  import { ProjectStatus } from '@prisma/client';
+  import { ProjectStatus, scopeItemStatus } from '@prisma/client';
   
   describe('scopeItem.service', () => {
     const projectId = 'proj_123';
@@ -40,6 +40,8 @@ import {
           id: scopeItemId,
           projectId,
           description: 'Homepage redesign',
+          name: 'Homepage redesign',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -51,13 +53,14 @@ import {
           projectId,
           userId,
           description: created.description,
+          name: created.name,
         });
   
         expect(mockPrisma.project.findFirst).toHaveBeenCalledWith({
           where: { id: projectId, userId },
         });
         expect(mockPrisma.scopeItem.create).toHaveBeenCalledWith({
-          data: { description: created.description, projectId },
+          data: { description: created.description, projectId, name: created.name },
         });
         expect(result).toEqual(created);
       });
@@ -67,6 +70,8 @@ import {
           id: scopeItemId,
           projectId,
           description: 'A',
+          name: 'A',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -78,10 +83,11 @@ import {
           projectId,
           userId,
           description: 'A',
+          name: 'A',
         });
 
         expect(mockPrisma.scopeItem.create).toHaveBeenCalledWith({
-          data: { description: 'A', projectId },
+          data: { description: 'A', projectId, name: 'A' },
         });
         expect(result).toEqual(created);
       });
@@ -92,6 +98,8 @@ import {
           id: scopeItemId,
           projectId,
           description: longDescription,
+          name: 'A',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -103,10 +111,11 @@ import {
           projectId,
           userId,
           description: longDescription,
+          name: 'A',
         });
 
         expect(mockPrisma.scopeItem.create).toHaveBeenCalledWith({
-          data: { description: longDescription, projectId },
+          data: { description: longDescription, projectId, name: 'A' },
         });
         expect(result).toEqual(created);
       });
@@ -115,11 +124,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
   
         await expect(
-          createScopeItem({ projectId, userId, description: 'New item' }),
+          createScopeItem({ projectId, userId, description: 'New item', name: 'New item' }),
         ).rejects.toThrow(ServiceError);
   
         await expect(
-          createScopeItem({ projectId, userId, description: 'New item' }),
+          createScopeItem({ projectId, userId, description: 'New item', name: 'New item' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
   
         expect(mockPrisma.scopeItem.create).not.toHaveBeenCalled();
@@ -129,11 +138,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
 
         await expect(
-          createScopeItem({ projectId, userId: 'different-user', description: 'New item' }),
+          createScopeItem({ projectId, userId: 'different-user', description: 'New item', name: 'New item' }),
         ).rejects.toThrow(ServiceError);
 
         await expect(
-          createScopeItem({ projectId, userId: 'different-user', description: 'New item' }),
+          createScopeItem({ projectId, userId: 'different-user', description: 'New item', name: 'New item' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
 
         expect(mockPrisma.scopeItem.create).not.toHaveBeenCalled();
@@ -143,7 +152,7 @@ import {
         mockPrisma.project.findFirst.mockRejectedValue(new Error('Database connection failed'));
 
         await expect(
-          createScopeItem({ projectId, userId, description: 'New item' }),
+          createScopeItem({ projectId, userId, description: 'New item', name: 'New item' }),
         ).rejects.toThrow('Database connection failed');
 
         expect(mockPrisma.scopeItem.create).not.toHaveBeenCalled();
@@ -154,7 +163,7 @@ import {
         mockPrisma.scopeItem.create.mockRejectedValue(new Error('Creation failed'));
 
         await expect(
-          createScopeItem({ projectId, userId, description: 'New item' }),
+          createScopeItem({ projectId, userId, description: 'New item', name: 'New item' }),
         ).rejects.toThrow('Creation failed');
       });
     });
@@ -165,8 +174,8 @@ import {
     describe('getScopeItems', () => {
       it('returns items for owned project', async () => {
         const items = [
-          { id: 'i1', projectId, description: 'A', createdAt: now, updatedAt: now },
-          { id: 'i2', projectId, description: 'B', createdAt: now, updatedAt: now },
+          { id: 'i1', projectId, description: 'A', name: 'A', status: scopeItemStatus.PENDING, createdAt: now, updatedAt: now },
+          { id: 'i2', projectId, description: 'B', name: 'B', status: scopeItemStatus.PENDING, createdAt: now, updatedAt: now },
         ];
   
         mockPrisma.project.findFirst.mockResolvedValue(mockProject);
@@ -185,9 +194,9 @@ import {
 
       it('returns items in correct order (creation order)', async () => {
         const items = [
-          { id: 'i1', projectId, description: 'First', createdAt: new Date('2023-01-01'), updatedAt: now },
-          { id: 'i2', projectId, description: 'Second', createdAt: new Date('2023-01-02'), updatedAt: now },
-          { id: 'i3', projectId, description: 'Third', createdAt: new Date('2023-01-03'), updatedAt: now },
+          { id: 'i1', projectId, description: 'First', name: 'First', status: scopeItemStatus.PENDING, createdAt: new Date('2023-01-01'), updatedAt: now },
+          { id: 'i2', projectId, description: 'Second', name: 'Second', status: scopeItemStatus.PENDING, createdAt: new Date('2023-01-02'), updatedAt: now },
+          { id: 'i3', projectId, description: 'Third', name: 'Third', status: scopeItemStatus.PENDING, createdAt: new Date('2023-01-03'), updatedAt: now },
         ];
 
         mockPrisma.project.findFirst.mockResolvedValue(mockProject);
@@ -216,6 +225,8 @@ import {
           id: `item_${i}`,
           projectId,
           description: `Item ${i}`,
+          name: `Item ${i}`,
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         }));
@@ -389,6 +400,8 @@ import {
           id: scopeItemId,
           projectId,
           description: 'Updated copy',
+          name: 'Update',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -402,6 +415,7 @@ import {
           id: scopeItemId,
           userId,
           description: 'Updated copy',
+          name: 'Update',
         });
   
         expect(mockPrisma.project.findFirst).toHaveBeenCalledWith({
@@ -409,7 +423,7 @@ import {
         });
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: 'Updated copy' },
+          data: { description: 'Updated copy', name: 'Update' },
         });
         expect(mockPrisma.scopeItem.findUnique).toHaveBeenCalledWith({
           where: { id: scopeItemId },
@@ -422,6 +436,8 @@ import {
           id: scopeItemId,
           projectId,
           description: 'A',
+          name: 'Update',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -435,11 +451,12 @@ import {
           id: scopeItemId,
           userId,
           description: 'A',
+          name: 'Update',
         });
 
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: 'A' },
+          data: { description: 'A', name: 'Update' },
         });
         expect(result).toEqual(updatedItem);
       });
@@ -450,6 +467,8 @@ import {
           id: scopeItemId,
           projectId,
           description: longDescription,
+          name: 'Update',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -463,11 +482,12 @@ import {
           id: scopeItemId,
           userId,
           description: longDescription,
+          name: 'Update',
         });
 
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: longDescription },
+          data: { description: longDescription, name: 'Update' },
         });
         expect(result).toEqual(updatedItem);
       });
@@ -477,6 +497,8 @@ import {
           id: scopeItemId,
           projectId,
           description: 'Same description',
+          name: 'Update',
+          status: scopeItemStatus.PENDING,
           createdAt: now,
           updatedAt: now,
         };
@@ -490,6 +512,7 @@ import {
           id: scopeItemId,
           userId,
           description: 'Same description',
+          name: 'Update',
         });
 
         expect(result).toEqual(updatedItem);
@@ -500,11 +523,11 @@ import {
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 0 });
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op' }),
         ).rejects.toThrow(ServiceError);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND);
   
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -515,11 +538,11 @@ import {
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 0 });
 
         await expect(
-          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update' }),
+          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update' }),
         ).rejects.toThrow(ServiceError);
 
         await expect(
-          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update' }),
+          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND);
 
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -529,11 +552,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X' }),
         ).rejects.toThrow(ServiceError);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
   
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -544,11 +567,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X' }),
         ).rejects.toThrow(ServiceError);
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X' }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
 
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -559,7 +582,7 @@ import {
         mockPrisma.project.findFirst.mockRejectedValue(new Error('Database error'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
         ).rejects.toThrow('Database error');
 
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -571,7 +594,7 @@ import {
         mockPrisma.scopeItem.updateMany.mockRejectedValue(new Error('Update failed'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
         ).rejects.toThrow('Update failed');
 
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -583,7 +606,7 @@ import {
         mockPrisma.scopeItem.findUnique.mockRejectedValue(new Error('Find failed'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
         ).rejects.toThrow('Find failed');
       });
 
@@ -596,6 +619,7 @@ import {
           projectId,
           id: scopeItemId,
           userId,
+          name: 'Update',
           description: 'Update',
         });
 

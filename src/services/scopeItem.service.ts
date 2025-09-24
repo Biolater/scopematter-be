@@ -8,7 +8,7 @@ import {
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 
-export const createScopeItem = async ({ projectId, description, userId }: CreateScopeItemInput) => {
+export const createScopeItem = async ({ projectId, description, userId, name }: CreateScopeItemInput) => {
     const project = await prisma.project.findFirst({
         where: { id: projectId, userId },
     });
@@ -18,7 +18,7 @@ export const createScopeItem = async ({ projectId, description, userId }: Create
     }
 
     return prisma.scopeItem.create({
-        data: { description, projectId },
+        data: { description, projectId, name },
     });
 };
 
@@ -57,7 +57,7 @@ export const deleteScopeItem = async ({ projectId, id, userId }: DeleteScopeItem
 };
 
 // Update
-export const updateScopeItem = async ({ projectId, id, userId, description }: UpdateScopeItemInput) => {
+export const updateScopeItem = async ({ projectId, id, userId, description, name }: UpdateScopeItemInput) => {
     // Ensure project belongs to user
     const project = await prisma.project.findFirst({
         where: { id: projectId, userId },
@@ -70,7 +70,7 @@ export const updateScopeItem = async ({ projectId, id, userId, description }: Up
     // Update scope item only if it belongs to this project
     const updated = await prisma.scopeItem.updateMany({
         where: { id, projectId },
-        data: { description },
+        data: { description, name },
     });
 
     if (updated.count === 0) {

@@ -1,5 +1,6 @@
 export interface CreateScopeItemInput {
     projectId: string;
+    name: string;
     description: string;
     userId: string;
 }
@@ -19,5 +20,6 @@ export interface UpdateScopeItemInput {
     projectId: string;
     id: string;
     userId: string;
+    name: string;
     description: string;
 }
