@@ -78,6 +78,13 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
                     status: true,
                     createdAt: true
                 }
+            },
+            _count: {
+                select: {
+                    scopeItems: true,
+                    requests: true,
+                    changeOrders: true,
+                }
             }
         },
     });
