@@ -28,6 +28,12 @@ enum ProjectStatus {
   COMPLETED
 }
 
+enum scopeItemStatus {
+  PENDING
+  COMPLETED
+  IN_PROGRESS
+}
+
 // ---------------- Models ----------------
 
 // Clerk-backed freelancer user
@@ -85,24 +91,23 @@ model Project {
 
 // Items explicitly agreed in project scope
 model ScopeItem {
-  id        String  @id @default(cuid())
-  projectId String
-  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
-
+  id          String          @id @default(cuid())
+  projectId   String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status      scopeItemStatus @default(PENDING)
   description String
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
 
-// Requests made by client during project
 model Request {
   id        String  @id @default(cuid())
   projectId String
   project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
   description String
-  status      RequestStatus
+  status      RequestStatus @default(PENDING)
 
   changeOrder ChangeOrder?
 
