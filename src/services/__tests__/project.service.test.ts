@@ -255,12 +255,15 @@ describe('project.service', () => {
 
       expect(mockPrisma.project.findFirst).toHaveBeenCalledWith({
         where: { id: projectId, userId },
-        include: {
+        include: {  
           client: {
             select: { id: true, name: true, email: true, company: true },
           },
           scopeItems: {
-            select: { id: true, description: true, createdAt: true },
+            select: { id: true, description: true, createdAt: true, name: true, status: true },
+            orderBy: {
+              createdAt: 'desc',
+            },
           },
           requests: {
             select: {
@@ -272,6 +275,9 @@ describe('project.service', () => {
                 select: { id: true, priceUsd: true, extraDays: true, status: true },
               },
             },
+            orderBy: {
+              createdAt: 'desc',
+            },
           },
           changeOrders: {
             select: {
@@ -280,6 +286,16 @@ describe('project.service', () => {
               extraDays: true,
               status: true,
               createdAt: true,
+            },
+            orderBy: {
+              createdAt: 'desc',
+            },
+          },
+          _count: {
+            select: {
+              scopeItems: true,
+              requests: true,
+              changeOrders: true,
             },
           },
         },
