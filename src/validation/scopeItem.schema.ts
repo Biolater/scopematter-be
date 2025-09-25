@@ -2,6 +2,7 @@ import { z } from "zod";
 
 export const createScopeItemSchema = z.object({
     description: z.string().min(1, "Description is required").max(1000, "Description too long"),
+    name: z.string().min(1, "Name is required").max(100, "Name too long"),
 });
 
 export const deleteScopeItemSchema = z.object({
@@ -10,7 +11,8 @@ export const deleteScopeItemSchema = z.object({
 
 export const updateScopeItemSchema = z.object({
     description: z.string().min(1, "Description is required").max(1000, "Description too long"),
-  });
+    name: z.string().min(1, "Name is required").max(100, "Name too long"),
+});
   
 
 export type CreateScopeItemSchema = z.infer<typeof createScopeItemSchema>;

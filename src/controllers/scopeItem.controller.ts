@@ -6,12 +6,13 @@ import { CreateScopeItemSchema, DeleteScopeItemSchema, UpdateScopeItemSchema } f
 
 export const createScopeItemController = async (req: Request<{ projectId: string }, {}, CreateScopeItemSchema>, res: Response) => {
     try {
-        const { description } = req.body;
+        const { description, name } = req.body;
         const { projectId } = req.params;
         const scopeItem = await createScopeItem({
             projectId,
             description,
             userId: req.user.id,
+            name: req.body.name,
         });
         return sendSuccess({ res, data: scopeItem, status: 201 });
     } catch (error) {
@@ -42,8 +43,8 @@ export const deleteScopeItemController = async (req: Request<{ projectId: string
 export const updateScopeItemController = async (req: Request<{ projectId: string, id: string }, {}, UpdateScopeItemSchema>, res: Response) => {
     try {
         const { projectId, id } = req.params;
-        const { description } = req.body;
-        const scopeItem = await updateScopeItem({ projectId, id, userId: req.user.id, description });
+        const { description, name } = req.body;
+        const scopeItem = await updateScopeItem({ projectId, id, userId: req.user.id, description, name });
         return sendSuccess({ res, data: scopeItem, status: 200 });
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Failed to update scope item" });
