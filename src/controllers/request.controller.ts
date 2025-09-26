@@ -1,8 +1,8 @@
 import { Request, Response } from "express";
 import { sendSuccess } from "../utils/response";
 import { handleServiceError } from "../utils/error-mapper";
-import { CreateRequestSchema, UpdateRequestSchema } from "../validation/request.schema";
-import { createRequest, getRequests, updateRequest } from "../services/request.service";
+import { CreateRequestSchema, DeleteRequestSchema, UpdateRequestSchema } from "../validation/request.schema";
+import { createRequest, getRequests, updateRequest, deleteRequest } from "../services/request.service";
 
 export const createRequestController = async (req: Request<{ projectId: string }, {}, CreateRequestSchema>, res: Response) => {
     try {
@@ -37,5 +37,15 @@ export const updateRequestController = async (req: Request<{ id: string }, {}, U
         return sendSuccess({ res, data: request, status: 200 });
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Failed to update request" });
+    }
+}
+
+export const deleteRequestController = async (req: Request<{ id: string }, {}, DeleteRequestSchema>, res: Response) => {
+    try {
+        const { id } = req.params;  
+        const request = await deleteRequest({ id, userId: req.user.id });
+        return sendSuccess({ res, data: request, status: 200 });
+    } catch (error) {
+        return handleServiceError({ res, e: error, fallbackMsg: "Failed to delete request" });
     }
 }

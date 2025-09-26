@@ -20,5 +20,10 @@ export const updateRequestSchema = z.object({
   status: z.enum([RequestStatus.IN_SCOPE, RequestStatus.OUT_OF_SCOPE]).optional(),
 });
 
+export const deleteRequestSchema = z.object({
+  id: z.string(),
+});
+
 export type CreateRequestSchema = z.infer<typeof createRequestSchema>;
 export type UpdateRequestSchema = z.infer<typeof updateRequestSchema>;
+export type DeleteRequestSchema = z.infer<typeof deleteRequestSchema>;

@@ -1,7 +1,7 @@
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import prisma from "../lib/prisma";
-import { CreateRequestInput, GetRequestsInput, UpdateRequestInput } from "../lib/types/request";
+import { CreateRequestInput, GetRequestsInput, UpdateRequestInput, DeleteRequestInput } from "../lib/types/request";
 
 export const createRequest = async ({ projectId, description, userId }: CreateRequestInput) => {
   return prisma.$transaction(async (tx) => {
@@ -53,6 +53,22 @@ export const updateRequest = async ({ id, userId, data }: UpdateRequestInput) =>
     return tx.request.update({
       where: { id },
       data: cleanData,
+    });
+  });
+};
+
+export const deleteRequest = async ({ id, userId }: DeleteRequestInput) => {
+  return prisma.$transaction(async (tx) => {
+    const request = await tx.request.findFirst({
+      where: { id, project: { userId } },
+    });
+
+    if (!request) {
+      throw new ServiceError(ServiceErrorCodes.REQUEST_NOT_FOUND);
+    }
+
+    return tx.request.delete({
+      where: { id },
     });
   });
 };

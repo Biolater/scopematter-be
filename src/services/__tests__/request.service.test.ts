@@ -1,4 +1,4 @@
-import { createRequest, getRequests, updateRequest } from "../request.service";
+import { createRequest, getRequests, updateRequest, deleteRequest } from "../request.service";
 import { mockPrisma } from "../../__tests__/setup";
 import { ServiceError } from "../../utils/service-error";
 import { ServiceErrorCodes } from "../../utils/service-error-codes";
@@ -696,6 +696,165 @@ describe("request.service", () => {
                 data: { description: "Updated" },
             });
             expect(result).toEqual(updated);
+        });
+    });
+
+    // ---------------------------
+    // deleteRequest
+    // ---------------------------
+    describe("deleteRequest", () => {
+        const existingRequest = {
+            id: requestId,
+            projectId,
+            description: "Request to delete",
+            status: RequestStatus.PENDING,
+            createdAt: now,
+            updatedAt: now,
+        };
+
+        it("deletes request when owned by user", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.delete.mockResolvedValue(existingRequest);
+
+            const result = await deleteRequest({ id: requestId, userId });
+
+            expect(mockPrisma.request.findFirst).toHaveBeenCalledWith({
+                where: { id: requestId, project: { userId } },
+            });
+            expect(mockPrisma.request.delete).toHaveBeenCalledWith({
+                where: { id: requestId },
+            });
+            expect(result).toEqual(existingRequest);
+        });
+
+        it("deletes request with different statuses", async () => {
+            const inScopeRequest = { ...existingRequest, status: RequestStatus.IN_SCOPE };
+            mockPrisma.request.findFirst.mockResolvedValue(inScopeRequest);
+            mockPrisma.request.delete.mockResolvedValue(inScopeRequest);
+
+            const result = await deleteRequest({ id: requestId, userId });
+
+            expect(result.status).toBe(RequestStatus.IN_SCOPE);
+        });
+
+        it("deletes request with OUT_OF_SCOPE status", async () => {
+            const outOfScopeRequest = { ...existingRequest, status: RequestStatus.OUT_OF_SCOPE };
+            mockPrisma.request.findFirst.mockResolvedValue(outOfScopeRequest);
+            mockPrisma.request.delete.mockResolvedValue(outOfScopeRequest);
+
+            const result = await deleteRequest({ id: requestId, userId });
+
+            expect(result.status).toBe(RequestStatus.OUT_OF_SCOPE);
+        });
+
+        it("deletes request with long description", async () => {
+            const longDescRequest = { 
+                ...existingRequest, 
+                description: "A".repeat(2000) 
+            };
+            mockPrisma.request.findFirst.mockResolvedValue(longDescRequest);
+            mockPrisma.request.delete.mockResolvedValue(longDescRequest);
+
+            const result = await deleteRequest({ id: requestId, userId });
+
+            expect(result.description).toBe("A".repeat(2000));
+        });
+
+        it("deletes request with minimal description", async () => {
+            const minimalRequest = { ...existingRequest, description: "A" };
+            mockPrisma.request.findFirst.mockResolvedValue(minimalRequest);
+            mockPrisma.request.delete.mockResolvedValue(minimalRequest);
+
+            const result = await deleteRequest({ id: requestId, userId });
+
+            expect(result.description).toBe("A");
+        });
+
+        it("throws REQUEST_NOT_FOUND when request does not exist", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(null);
+
+            await expect(deleteRequest({ id: requestId, userId })).rejects.toThrow(ServiceError);
+            await expect(deleteRequest({ id: requestId, userId })).rejects.toHaveProperty(
+                "code",
+                ServiceErrorCodes.REQUEST_NOT_FOUND,
+            );
+
+            expect(mockPrisma.request.delete).not.toHaveBeenCalled();
+        });
+
+        it("throws REQUEST_NOT_FOUND when request belongs to different user", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(null);
+
+            await expect(deleteRequest({ id: requestId, userId: "different-user" })).rejects.toThrow(ServiceError);
+            await expect(deleteRequest({ id: requestId, userId: "different-user" })).rejects.toHaveProperty(
+                "code",
+                ServiceErrorCodes.REQUEST_NOT_FOUND,
+            );
+
+            expect(mockPrisma.request.delete).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during request lookup", async () => {
+            mockPrisma.request.findFirst.mockRejectedValue(new Error("Database error"));
+
+            await expect(deleteRequest({ id: requestId, userId })).rejects.toThrow("Database error");
+            expect(mockPrisma.request.delete).not.toHaveBeenCalled();
+        });
+
+        it("handles database errors during deletion", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.delete.mockRejectedValue(new Error("Delete failed"));
+
+            await expect(deleteRequest({ id: requestId, userId })).rejects.toThrow("Delete failed");
+        });
+
+        it("handles transaction rollback on any error", async () => {
+            mockPrisma.request.findFirst.mockRejectedValue(new Error("Transaction error"));
+
+            await expect(deleteRequest({ id: requestId, userId })).rejects.toThrow("Transaction error");
+        });
+
+        it("handles different request IDs correctly", async () => {
+            const differentRequestId = "req_999";
+            const differentRequest = { ...existingRequest, id: differentRequestId };
+
+            mockPrisma.request.findFirst.mockResolvedValue(differentRequest);
+            mockPrisma.request.delete.mockResolvedValue(differentRequest);
+
+            const result = await deleteRequest({ id: differentRequestId, userId });
+
+            expect(mockPrisma.request.findFirst).toHaveBeenCalledWith({
+                where: { id: differentRequestId, project: { userId } },
+            });
+            expect(mockPrisma.request.delete).toHaveBeenCalledWith({
+                where: { id: differentRequestId },
+            });
+            expect(result).toEqual(differentRequest);
+        });
+
+        it("verifies proper where clause for ownership check", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.delete.mockResolvedValue(existingRequest);
+
+            await deleteRequest({ id: requestId, userId });
+
+            expect(mockPrisma.request.findFirst).toHaveBeenCalledWith({
+                where: { 
+                    id: requestId, 
+                    project: { userId } 
+                },
+            });
+        });
+
+        it("verifies delete is called with correct ID", async () => {
+            mockPrisma.request.findFirst.mockResolvedValue(existingRequest);
+            mockPrisma.request.delete.mockResolvedValue(existingRequest);
+
+            await deleteRequest({ id: requestId, userId });
+
+            expect(mockPrisma.request.delete).toHaveBeenCalledWith({
+                where: { id: requestId },
+            });
         });
     });
 });

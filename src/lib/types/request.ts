@@ -16,3 +16,8 @@ export interface UpdateRequestInput {
     userId: string;
     data: UpdateRequestSchema;
 }
+
+export interface DeleteRequestInput {
+    id: string;
+    userId: string;
+}
