@@ -17,7 +17,7 @@ export const updateRequestSchema = z.object({
     .optional(),
 
   // Only allow IN_SCOPE or OUT_OF_SCOPE on update
-  status: z.enum([RequestStatus.IN_SCOPE, RequestStatus.OUT_OF_SCOPE]).optional(),
+  status: z.enum([RequestStatus.IN_SCOPE, RequestStatus.OUT_OF_SCOPE, RequestStatus.PENDING]).optional(),
 });
 
 export const deleteRequestSchema = z.object({
