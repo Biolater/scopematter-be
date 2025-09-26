@@ -57,7 +57,7 @@ export const deleteScopeItem = async ({ projectId, id, userId }: DeleteScopeItem
 };
 
 // Update
-export const updateScopeItem = async ({ projectId, id, userId, description, name }: UpdateScopeItemInput) => {
+export const updateScopeItem = async ({ projectId, id, userId, description, name, status }: UpdateScopeItemInput) => {
     // Ensure project belongs to user
     const project = await prisma.project.findFirst({
         where: { id: projectId, userId },
@@ -70,7 +70,7 @@ export const updateScopeItem = async ({ projectId, id, userId, description, name
     // Update scope item only if it belongs to this project
     const updated = await prisma.scopeItem.updateMany({
         where: { id, projectId },
-        data: { description, name },
+        data: { description, name, status },
     });
 
     if (updated.count === 0) {

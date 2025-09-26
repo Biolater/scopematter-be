@@ -416,6 +416,7 @@ import {
           userId,
           description: 'Updated copy',
           name: 'Update',
+          status: scopeItemStatus.PENDING,
         });
   
         expect(mockPrisma.project.findFirst).toHaveBeenCalledWith({
@@ -423,7 +424,7 @@ import {
         });
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: 'Updated copy', name: 'Update' },
+          data: { description: 'Updated copy', name: 'Update', status: scopeItemStatus.PENDING },
         });
         expect(mockPrisma.scopeItem.findUnique).toHaveBeenCalledWith({
           where: { id: scopeItemId },
@@ -452,11 +453,12 @@ import {
           userId,
           description: 'A',
           name: 'Update',
+          status: scopeItemStatus.PENDING,
         });
 
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: 'A', name: 'Update' },
+          data: { description: 'A', name: 'Update', status: scopeItemStatus.PENDING },
         });
         expect(result).toEqual(updatedItem);
       });
@@ -483,11 +485,12 @@ import {
           userId,
           description: longDescription,
           name: 'Update',
+          status: scopeItemStatus.PENDING,
         });
 
         expect(mockPrisma.scopeItem.updateMany).toHaveBeenCalledWith({
           where: { id: scopeItemId, projectId },
-          data: { description: longDescription, name: 'Update' },
+          data: { description: longDescription, name: 'Update', status: scopeItemStatus.PENDING },
         });
         expect(result).toEqual(updatedItem);
       });
@@ -513,6 +516,7 @@ import {
           userId,
           description: 'Same description',
           name: 'Update',
+          status: scopeItemStatus.PENDING,
         });
 
         expect(result).toEqual(updatedItem);
@@ -523,11 +527,11 @@ import {
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 0 });
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow(ServiceError);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'No-op', name: 'No-op', status: scopeItemStatus.PENDING }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND);
   
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -538,11 +542,11 @@ import {
         mockPrisma.scopeItem.updateMany.mockResolvedValue({ count: 0 });
 
         await expect(
-          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update' }),
+          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow(ServiceError);
 
         await expect(
-          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update' }),
+          updateScopeItem({ projectId, id: 'item-from-different-project', userId, description: 'Update', name: 'Update', status: scopeItemStatus.PENDING }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND);
 
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -552,11 +556,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X', status: scopeItemStatus.PENDING     }),
         ).rejects.toThrow(ServiceError);
   
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'X', name: 'X', status: scopeItemStatus.PENDING }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
   
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -567,11 +571,11 @@ import {
         mockPrisma.project.findFirst.mockResolvedValue(null);
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow(ServiceError);
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId: 'different-user', description: 'X', name: 'X', status: scopeItemStatus.PENDING }),
         ).rejects.toHaveProperty('code', ServiceErrorCodes.PROJECT_NOT_FOUND);
 
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -582,7 +586,7 @@ import {
         mockPrisma.project.findFirst.mockRejectedValue(new Error('Database error'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow('Database error');
 
         expect(mockPrisma.scopeItem.updateMany).not.toHaveBeenCalled();
@@ -594,7 +598,7 @@ import {
         mockPrisma.scopeItem.updateMany.mockRejectedValue(new Error('Update failed'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow('Update failed');
 
         expect(mockPrisma.scopeItem.findUnique).not.toHaveBeenCalled();
@@ -606,7 +610,7 @@ import {
         mockPrisma.scopeItem.findUnique.mockRejectedValue(new Error('Find failed'));
 
         await expect(
-          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update' }),
+          updateScopeItem({ projectId, id: scopeItemId, userId, description: 'Update', name: 'Update', status: scopeItemStatus.PENDING }),
         ).rejects.toThrow('Find failed');
       });
 
@@ -621,6 +625,7 @@ import {
           userId,
           name: 'Update',
           description: 'Update',
+          status: scopeItemStatus.PENDING,
         });
 
         expect(result).toBeNull();

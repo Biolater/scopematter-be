@@ -1,3 +1,5 @@
+import { scopeItemStatus } from "@prisma/client";
+
 export interface CreateScopeItemInput {
     projectId: string;
     name: string;
@@ -22,4 +24,5 @@ export interface UpdateScopeItemInput {
     userId: string;
     name: string;
     description: string;
+    status: scopeItemStatus
 }

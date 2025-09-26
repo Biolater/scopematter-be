@@ -43,8 +43,8 @@ export const deleteScopeItemController = async (req: Request<{ projectId: string
 export const updateScopeItemController = async (req: Request<{ projectId: string, id: string }, {}, UpdateScopeItemSchema>, res: Response) => {
     try {
         const { projectId, id } = req.params;
-        const { description, name } = req.body;
-        const scopeItem = await updateScopeItem({ projectId, id, userId: req.user.id, description, name });
+        const { description, name, status } = req.body;
+        const scopeItem = await updateScopeItem({ projectId, id, userId: req.user.id, description, name, status });
         return sendSuccess({ res, data: scopeItem, status: 200 });
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Failed to update scope item" });
