@@ -11,6 +11,7 @@ describe('dashboard.service', () => {
 
   beforeEach(() => {
     jest.clearAllMocks();
+    mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
     // Mock the date utilities to return predictable values
     jest.spyOn(require('../../utils/date'), 'getStartOfMonth').mockReturnValue(startOfMonth);
     jest.spyOn(require('../../utils/date'), 'getStartOfWeek').mockReturnValue(startOfWeek);

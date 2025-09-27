@@ -1,6 +1,6 @@
 ## PayLynk-BE Backend Context (for AI assistants)
 
-This document summarizes the backend’s structure, API routes, controllers, services, domain types, validation schemas, and Prisma models. It is designed to give AI systems enough context to answer questions accurately without scanning the entire codebase.
+This document summarizes the backend's structure, API routes, controllers, services, domain types, validation schemas, and Prisma models. It is designed to give AI systems enough context to answer questions accurately without scanning the entire codebase.
 
 ### Runtime and Entry
 - Express app bootstrapped in `src/index.ts`.
@@ -33,11 +33,12 @@ Defined in `prisma/schema.prisma`:
   - `RequestStatus`: `PENDING | IN_SCOPE | OUT_OF_SCOPE`
   - `ChangeOrderStatus`: `PENDING | APPROVED | REJECTED`
   - `ProjectStatus`: `PENDING | IN_PROGRESS | COMPLETED`
+  - `scopeItemStatus`: `PENDING | COMPLETED | IN_PROGRESS`
 - Models:
   - `AppUser { id, clerkId (unique), email (unique), firstName?, lastName?, imageUrl?, isActive, projects[], changeOrders[], createdAt, updatedAt }`
   - `Client { id, name, email?, company?, projects[], createdAt, updatedAt }`
   - `Project { id, name, description?, status: ProjectStatus, userId -> AppUser, clientId -> Client, scopeItems[], requests[], changeOrders[], createdAt, updatedAt }`
-  - `ScopeItem { id, projectId -> Project, description, createdAt, updatedAt }`
+  - `ScopeItem { id, projectId -> Project, name, description, status: scopeItemStatus, createdAt, updatedAt }`
   - `Request { id, projectId -> Project, description, status: RequestStatus, changeOrder?, createdAt, updatedAt }`
   - `ChangeOrder { id, requestId (unique) -> Request, projectId -> Project, userId -> AppUser, priceUsd Decimal(10,2), extraDays?, status: ChangeOrderStatus, createdAt, updatedAt }`
 
@@ -60,11 +61,13 @@ Defined in `prisma/schema.prisma`:
       - `POST /` create request
       - `GET /` list requests
       - `PUT /:id` update request
+      - `DELETE /:id` delete request
     - `/:projectId/change-orders` → `src/routes/changeOrder.router.ts`
       - `POST /` create change order
       - `GET /` list change orders
       - `GET /:id` get change order
       - `PUT /:id` update change order
+      - `DELETE /:id` delete change order
 - `/api/v1/dashboard` → `src/routes/dashboard.router.ts` (auth required)
   - `GET /` get dashboard metrics and activity
 - Misc endpoints in `src/index.ts`:
@@ -72,15 +75,15 @@ Defined in `prisma/schema.prisma`:
   - `GET /protected` (auth required) returns user context
   - `GET /clerk/:userId` internal util (requires `x-internal-secret`)
 
-### Controllers (selected)
+### Controllers
 - Project: `src/controllers/project.controller.ts`
   - create/get list/get one/update/delete using service layer; injects `req.user.id` and Zod-validated DTOs.
 - ScopeItem: `src/controllers/scopeItem.controller.ts`
-  - CRUD within a project; validates ownership with `userId`.
+  - CRUD within a project; validates ownership with `userId`; includes `name` and `status` fields.
 - Request: `src/controllers/request.controller.ts`
-  - Create/list/update; status can move from `PENDING` to `IN_SCOPE` or `OUT_OF_SCOPE`.
+  - Create/list/update/delete; status can move from `PENDING` to `IN_SCOPE` or `OUT_OF_SCOPE`.
 - ChangeOrder: `src/controllers/changeOrder.controller.ts`
-  - Create/list/get/update; only for `OUT_OF_SCOPE` requests without existing change order.
+  - Create/list/get/update/delete; only for `OUT_OF_SCOPE` requests without existing change order.
 - Dashboard: `src/controllers/dashboard.controller.ts`
   - Get dashboard metrics, activity feed, and quick stats for authenticated user.
 - Webhook: `src/controllers/clerk.controller.ts`
@@ -90,17 +93,22 @@ Defined in `prisma/schema.prisma`:
 - Project: `src/services/project.service.ts`
   - Create: transactionally creates `Client` then `Project`.
   - Get list: filters by `userId`, includes `client` summary and counts.
-  - Get one: includes `client`, `scopeItems`, `requests` (with nested `changeOrder`), and `changeOrders`.
-  - Update: partial update of `Project` and optionally `Client` fields; strips empty strings to `undefined`.
+  - Get one: includes `client`, `scopeItems`, `requests` (with nested `changeOrder`), and `changeOrders` (with nested `request`).
+  - Update: partial update of `Project` and optionally `Client` fields; strips empty strings to `undefined`; supports `status` updates.
   - Delete: ensures ownership.
 - ScopeItem: `src/services/scopeItem.service.ts`
   - All operations verify the project belongs to the user.
+  - Create: requires `name`, `description`, and `userId`.
+  - Update: supports `name`, `description`, and `status` updates.
+  - Delete: uses `deleteMany` with project validation.
 - Request: `src/services/request.service.ts`
-  - Create: defaults to `PENDING`.
+  - Create: defaults to `PENDING` status.
   - Update: allows changing `description` and `status` (validated by Zod); ownership enforced.
+  - Delete: ensures ownership before deletion.
 - ChangeOrder: `src/services/changeOrder.service.ts`
   - Create: only from `Request` in `OUT_OF_SCOPE`, without existing change order, and owned by user.
   - Update: only when current status is `PENDING`; validates allowed transitions; returns entity with `request` summary.
+  - Delete: only when status is `PENDING`.
 - Dashboard: `src/services/dashboard.service.ts`
   - Aggregates metrics (projects, scope items, requests, change orders) with growth calculations.
   - Generates recent activity feed from projects, requests, and change orders.
@@ -111,17 +119,18 @@ Defined in `prisma/schema.prisma`:
 ### Validation Schemas (Zod → inferred TS types)
 - Project `src/validation/project.schema.ts`
   - `createProjectSchema`: `{ name: string (1..100), description?: string (<=500), client: { name: string, email?: email, company?: string } }`
-  - `updateProjectSchema`: partial; empty strings coerced to `undefined` via union with `""`.
+  - `updateProjectSchema`: partial; empty strings coerced to `undefined` via union with `""`; includes `status` enum.
   - Types: `CreateProjectSchema`, `UpdateProjectSchema`.
 - ScopeItem `src/validation/scopeItem.schema.ts`
-  - `createScopeItemSchema`: `{ description: string (1..1000) }`
+  - `createScopeItemSchema`: `{ description: string (1..1000), name: string (1..100) }`
   - `deleteScopeItemSchema`: `{ id: cuid }`
-  - `updateScopeItemSchema`: same as create.
+  - `updateScopeItemSchema`: `{ description: string (1..1000), name: string (1..100), status: enum(PENDING | COMPLETED | IN_PROGRESS) }`.
   - Types: `CreateScopeItemSchema`, `DeleteScopeItemSchema`, `UpdateScopeItemSchema`.
 - Request `src/validation/request.schema.ts`
   - `createRequestSchema`: `{ description: string (1..2000) }`
-  - `updateRequestSchema`: `{ description?: string (1..2000), status?: enum(IN_SCOPE | OUT_OF_SCOPE) }`.
-  - Types: `CreateRequestSchema`, `UpdateRequestSchema`.
+  - `updateRequestSchema`: `{ description?: string (1..2000), status?: enum(IN_SCOPE | OUT_OF_SCOPE | PENDING) }`.
+  - `deleteRequestSchema`: `{ id: string }`.
+  - Types: `CreateRequestSchema`, `UpdateRequestSchema`, `DeleteRequestSchema`.
 - ChangeOrder `src/validation/changeOrder.schema.ts`
   - `createChangeOrderSchema`: `{ requestId: cuid, priceUsd: number (positive, <= 999999.99, 2 decimals), extraDays?: int(1..365) }`
   - `updateChangeOrderSchema`: all optional; `status` in `PENDING | APPROVED | REJECTED`.
@@ -133,15 +142,15 @@ Defined in `prisma/schema.prisma`:
 - ScopeItem `src/lib/types/scopeItem.ts`
   - `CreateScopeItemInput`, `GetScopeItemsInput`, `DeleteScopeItemInput`, `UpdateScopeItemInput`.
 - Request `src/lib/types/request.ts`
-  - `CreateRequestInput`, `GetRequestsInput`, `UpdateRequestInput`.
+  - `CreateRequestInput`, `GetRequestsInput`, `UpdateRequestInput`, `DeleteRequestInput`.
 - ChangeOrder `src/lib/types/changeOrder.ts`
-  - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`.
+  - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`, `DeleteChangeOrderInput`.
 - Dashboard `src/lib/types/dashboard.ts`
   - `GetDashboardInput`, `GetDashboardOutput`, `DashboardMetrics`, `DashboardActivity`, `DashboardActivityType`, `DashboardQuickStats`.
 
 ### Prisma Types (from `@prisma/client`)
 - Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`.
-- Enums: `RequestStatus`, `ChangeOrderStatus`, `ProjectStatus`.
+- Enums: `RequestStatus`, `ChangeOrderStatus`, `ProjectStatus`, `scopeItemStatus`.
 
 ### Middleware and Utilities
 - `requireAuth` ensures `req.user: AppUser` and `401/404` otherwise.
@@ -165,11 +174,13 @@ Defined in `prisma/schema.prisma`:
   - `POST /api/v1/projects/:projectId/requests` body: `CreateRequestSchema` → Request
   - `GET /api/v1/projects/:projectId/requests` → Request[]
   - `PUT /api/v1/projects/:projectId/requests/:id` body: `UpdateRequestSchema` → Request
+  - `DELETE /api/v1/projects/:projectId/requests/:id` → deleted Request
 - Change Orders
   - `POST /api/v1/projects/:projectId/change-orders` body: `CreateChangeOrderSchema` → ChangeOrder
   - `GET /api/v1/projects/:projectId/change-orders` → ChangeOrder[] (with request summary)
   - `GET /api/v1/projects/:projectId/change-orders/:id` → ChangeOrder (with request summary)
   - `PUT /api/v1/projects/:projectId/change-orders/:id` body: `UpdateChangeOrderSchema` → ChangeOrder
+  - `DELETE /api/v1/projects/:projectId/change-orders/:id` → deleted ChangeOrder
 - Dashboard
   - `GET /api/v1/dashboard` → Dashboard metrics, recent activity, and quick stats
 - Webhooks
