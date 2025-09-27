@@ -6,8 +6,82 @@ export const getDashboard = async ({ userId }: GetDashboardInput): Promise<GetDa
   const startOfMonth = getStartOfMonth();
   const startOfWeek = getStartOfWeek();
 
-  // ===== Metrics (totals, growth, breakdowns) =====
-  const [
+  // ===== All data in single transaction =====
+  const result = await prisma.$transaction(async (tx) => {
+    const [
+      totalProjects,
+      newProjectsThisMonth,
+      completedProjects,
+      totalScopeItems,
+      newScopeThisWeek,
+      totalRequests,
+      newRequestsThisWeek,
+      pendingRequests,
+      totalChangeOrders,
+      newChangeOrdersThisMonth,
+      approvedChangeOrders,
+      rejectedChangeOrders,
+      pendingChangeOrders,
+      recentProjects,
+      recentRequests,
+      recentChangeOrders,
+    ] = await Promise.all([
+      tx.project.count({ where: { userId } }),
+      tx.project.count({ where: { userId, createdAt: { gte: startOfMonth } } }),
+      tx.project.count({ where: { userId, status: "COMPLETED" } }),
+
+      tx.scopeItem.count({ where: { project: { userId } } }),
+      tx.scopeItem.count({ where: { project: { userId }, createdAt: { gte: startOfWeek } } }),
+
+      tx.request.count({ where: { project: { userId } } }),
+      tx.request.count({ where: { project: { userId }, createdAt: { gte: startOfWeek } } }),
+      tx.request.count({ where: { project: { userId }, status: "OUT_OF_SCOPE" } }),
+
+      tx.changeOrder.count({ where: { project: { userId } } }),
+      tx.changeOrder.count({ where: { project: { userId }, createdAt: { gte: startOfMonth } } }),
+      tx.changeOrder.count({ where: { project: { userId }, status: "APPROVED" } }),
+      tx.changeOrder.count({ where: { project: { userId }, status: "REJECTED" } }),
+      tx.changeOrder.count({ where: { project: { userId }, status: "PENDING" } }),
+      
+      // Recent Activity
+      tx.project.findMany({
+        where: { userId },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      tx.request.findMany({
+        where: { project: { userId } },
+        orderBy: { createdAt: "desc" },
+        take: 5,
+      }),
+      tx.changeOrder.findMany({
+        where: { project: { userId } },
+        orderBy: { updatedAt: "desc" },
+        take: 5,
+      }),
+    ]);
+
+    return {
+      totalProjects,
+      newProjectsThisMonth,
+      completedProjects,
+      totalScopeItems,
+      newScopeThisWeek,
+      totalRequests,
+      newRequestsThisWeek,
+      pendingRequests,
+      totalChangeOrders,
+      newChangeOrdersThisMonth,
+      approvedChangeOrders,
+      rejectedChangeOrders,
+      pendingChangeOrders,
+      recentProjects,
+      recentRequests,
+      recentChangeOrders,
+    };
+  });
+
+  const {
     totalProjects,
     newProjectsThisMonth,
     completedProjects,
@@ -21,43 +95,10 @@ export const getDashboard = async ({ userId }: GetDashboardInput): Promise<GetDa
     approvedChangeOrders,
     rejectedChangeOrders,
     pendingChangeOrders,
-  ] = await prisma.$transaction([
-    prisma.project.count({ where: { userId } }),
-    prisma.project.count({ where: { userId, createdAt: { gte: startOfMonth } } }),
-    prisma.project.count({ where: { userId, status: "COMPLETED" } }),
-
-    prisma.scopeItem.count({ where: { project: { userId } } }),
-    prisma.scopeItem.count({ where: { project: { userId }, createdAt: { gte: startOfWeek } } }),
-
-    prisma.request.count({ where: { project: { userId } } }),
-    prisma.request.count({ where: { project: { userId }, createdAt: { gte: startOfWeek } } }),
-    prisma.request.count({ where: { project: { userId }, status: "OUT_OF_SCOPE" } }),
-
-    prisma.changeOrder.count({ where: { project: { userId } } }),
-    prisma.changeOrder.count({ where: { project: { userId }, createdAt: { gte: startOfMonth } } }),
-    prisma.changeOrder.count({ where: { project: { userId }, status: "APPROVED" } }),
-    prisma.changeOrder.count({ where: { project: { userId }, status: "REJECTED" } }),
-    prisma.changeOrder.count({ where: { project: { userId }, status: "PENDING" } }),
-  ]);
-
-  // ===== Recent Activity =====
-  const [recentProjects, recentRequests, recentChangeOrders] = await prisma.$transaction([
-    prisma.project.findMany({
-      where: { userId },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    prisma.request.findMany({
-      where: { project: { userId } },
-      orderBy: { createdAt: "desc" },
-      take: 5,
-    }),
-    prisma.changeOrder.findMany({
-      where: { project: { userId } },
-      orderBy: { updatedAt: "desc" },
-      take: 5,
-    }),
-  ]);
+    recentProjects,
+    recentRequests,
+    recentChangeOrders,
+  } = result;
 
   const recentActivity: DashboardActivity[] = [
     ...recentProjects.map((p) => ({

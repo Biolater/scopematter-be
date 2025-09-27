@@ -633,16 +633,14 @@ describe('dashboard.service', () => {
     });
 
     it('should handle database errors gracefully', async () => {
-      mockPrisma.project.count.mockRejectedValue(new Error('Database connection failed'));
+      mockPrisma.$transaction.mockRejectedValue(new Error('Database connection failed'));
 
       await expect(getDashboard({ userId })).rejects.toThrow('Database connection failed');
     });
 
     it('should handle partial database failures', async () => {
-      // First few queries succeed, then one fails
-      mockPrisma.project.count.mockResolvedValueOnce(5);
-      mockPrisma.project.count.mockResolvedValueOnce(2);
-      mockPrisma.project.count.mockRejectedValue(new Error('Database error'));
+      // Mock transaction to throw error
+      mockPrisma.$transaction.mockRejectedValue(new Error('Database error'));
 
       await expect(getDashboard({ userId })).rejects.toThrow('Database error');
     });
