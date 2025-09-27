@@ -272,7 +272,7 @@ describe('project.service', () => {
               status: true,
               createdAt: true,
               changeOrder: {
-                select: { id: true, priceUsd: true, extraDays: true, status: true, request: { select: { id: true, description: true, status: true, createdAt: true } } },
+                select: { id: true, priceUsd: true, extraDays: true, status: true },
               },
             },
             orderBy: {
@@ -282,6 +282,14 @@ describe('project.service', () => {
           changeOrders: {
             select: {
               id: true,
+              request: {
+                select: {
+                  id: true,
+                  description: true,
+                  status: true,
+                  createdAt: true,
+                }
+              },
               priceUsd: true,
               extraDays: true,
               status: true,

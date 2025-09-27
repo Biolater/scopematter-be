@@ -1,7 +1,7 @@
 import prisma from "../lib/prisma";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
-import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput } from "../lib/types/changeOrder";
+import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput, DeleteChangeOrderInput } from "../lib/types/changeOrder";
 import { ChangeOrderStatus, RequestStatus } from "@prisma/client";
 
 export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraDays, userId }: CreateChangeOrderInput) => {
@@ -183,6 +183,30 @@ export const updateChangeOrder = async ({
                     },
                 },
             },
+        });
+    });
+};
+
+export const deleteChangeOrder = async ({ projectId, id, userId }: DeleteChangeOrderInput) => {
+    return prisma.$transaction(async (tx) => {
+        // Ensure project belongs to user
+        const project = await tx.project.findFirst({
+            where: { id: projectId, userId },
+        });
+        if (!project) {
+            throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
+        }
+        const changeOrder = await tx.changeOrder.findFirst({
+            where: { id, projectId, userId },
+        });
+        if (!changeOrder) {
+            throw new ServiceError(ServiceErrorCodes.CHANGE_ORDER_NOT_FOUND);
+        }
+        if (changeOrder.status !== ChangeOrderStatus.PENDING) {
+            throw new ServiceError(ServiceErrorCodes.INVALID_STATUS_UPDATE);
+        }
+        return tx.changeOrder.delete({
+            where: { id },
         });
     });
 };

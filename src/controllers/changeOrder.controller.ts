@@ -2,7 +2,7 @@ import { Request, Response } from "express";
 import { sendSuccess } from "../utils/response";
 import { handleServiceError } from "../utils/error-mapper";
 import { CreateChangeOrderSchema, UpdateChangeOrderSchema } from "../validation/changeOrder.schema";
-import { createChangeOrder, getChangeOrders, getChangeOrder, updateChangeOrder } from "../services/changeOrder.service";
+import { createChangeOrder, getChangeOrders, getChangeOrder, updateChangeOrder, deleteChangeOrder } from "../services/changeOrder.service";
 
 export const createChangeOrderController = async (req: Request<{ projectId: string }, {}, CreateChangeOrderSchema>, res: Response) => {
     try {
@@ -43,5 +43,15 @@ export const updateChangeOrderController = async (req: Request<{ projectId: stri
         return sendSuccess({ res, data: changeOrder, status: 200 });
     } catch (error) {
         return handleServiceError({ res, e: error, fallbackMsg: "Failed to update change order" });
+    }
+}
+
+export const deleteChangeOrderController = async (req: Request<{ projectId: string, id: string }>, res: Response) => {
+    try {
+        const { projectId, id } = req.params;
+        const changeOrder = await deleteChangeOrder({ projectId, id, userId: req.user.id });
+        return sendSuccess({ res, data: changeOrder, status: 200 });
+    } catch (error) {
+        return handleServiceError({ res, e: error, fallbackMsg: "Failed to delete change order" });
     }
 }

@@ -27,3 +27,9 @@ export interface UpdateChangeOrderInput {
     status: ChangeOrderStatus | undefined;
     userId: string;
 }
+
+export interface DeleteChangeOrderInput {
+    projectId: string;
+    id: string;
+    userId: string;
+}
