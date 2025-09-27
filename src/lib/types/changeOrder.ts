@@ -33,3 +33,9 @@ export interface DeleteChangeOrderInput {
     id: string;
     userId: string;
 }
+
+export interface ExportChangeOrderInput {
+    projectId: string;
+    id: string;
+    userId: string;
+}

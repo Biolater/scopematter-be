@@ -1,7 +1,7 @@
 import prisma from "../lib/prisma";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
-import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput, DeleteChangeOrderInput } from "../lib/types/changeOrder";
+import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput, DeleteChangeOrderInput, ExportChangeOrderInput } from "../lib/types/changeOrder";
 import { ChangeOrderStatus, RequestStatus } from "@prisma/client";
 
 export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraDays, userId }: CreateChangeOrderInput) => {
@@ -208,5 +208,46 @@ export const deleteChangeOrder = async ({ projectId, id, userId }: DeleteChangeO
         return tx.changeOrder.delete({
             where: { id },
         });
+    });
+};
+
+export const exportChangeOrder = async ({ projectId, id, userId }: ExportChangeOrderInput) => {
+    return prisma.$transaction(async (tx) => {
+        // Ensure project belongs to user and include client + the specific change order
+        const project = await tx.project.findFirst({
+            where: { id: projectId, userId },
+            include: {
+                client: {
+                    select: {
+                        id: true,
+                        name: true,
+                        company: true,
+                        email: true,
+                    },
+                },
+                changeOrders: {
+                    where: { id },
+                    include: {
+                        request: {
+                            select: {
+                                id: true,
+                                description: true,
+                            },
+                        },
+                    },
+                },
+            },
+        });
+
+        if (!project) {
+            throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
+        }
+
+        const changeOrder = project.changeOrders[0];
+        if (!changeOrder) {
+            throw new ServiceError(ServiceErrorCodes.CHANGE_ORDER_NOT_FOUND);
+        }
+
+        return { project, changeOrder };
     });
 };
