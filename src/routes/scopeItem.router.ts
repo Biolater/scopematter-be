@@ -7,6 +7,7 @@ import {
     getScopeItemsController,
     deleteScopeItemController,
     updateScopeItemController,
+    exportScopeItemsController,
 } from "../controllers/scopeItem.controller";
 
 const scopeItemRouter = Router({ mergeParams: true });
@@ -23,5 +24,7 @@ scopeItemRouter.get("/", requireAuth, getScopeItemsController);
 scopeItemRouter.delete("/:id", requireAuth, deleteScopeItemController);
 
 scopeItemRouter.put("/:id", requireAuth, validateBody(updateScopeItemSchema), updateScopeItemController);
+
+scopeItemRouter.get("/export", requireAuth, exportScopeItemsController);
 
 export default scopeItemRouter;

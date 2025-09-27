@@ -4,6 +4,7 @@ import {
     GetScopeItemsInput,
     DeleteScopeItemInput,
     UpdateScopeItemInput,
+    ExportScopeItemsInput,
 } from "../lib/types/scopeItem";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
@@ -86,5 +87,40 @@ export const updateScopeItem = async ({ projectId, id, userId, description, name
 
         // Fetch the updated item to return it
         return tx.scopeItem.findUnique({ where: { id } });
+    });
+};
+
+
+export const exportScopeItems = async ({ projectId, userId }: ExportScopeItemsInput) => {
+    return prisma.$transaction(async (tx) => {
+        // Ensure project belongs to user and fetch client + scope items
+        const project = await tx.project.findFirst({
+            where: { id: projectId, userId },
+            include: {
+                client: {
+                    select: {
+                        id: true,
+                        name: true,
+                        company: true,
+                        email: true,
+                    },
+                },
+                scopeItems: {
+                    select: {
+                        id: true,
+                        name: true,
+                        description: true,
+                        status: true,
+                    },
+                    orderBy: { createdAt: "asc" },
+                },
+            },
+        });
+
+        if (!project) {
+            throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
+        }
+
+        return project; // contains project, client, and all scope items
     });
 };
