@@ -79,6 +79,14 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
             changeOrders: {
                 select: {
                     id: true,
+                    request: {
+                        select: {
+                            id: true,
+                            description: true,
+                            status: true,
+                            createdAt: true,
+                        }
+                    },
                     priceUsd: true,
                     extraDays: true,
                     status: true,
