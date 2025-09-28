@@ -261,9 +261,10 @@ describe('project.service', () => {
           },
           scopeItems: {
             select: { id: true, description: true, createdAt: true, name: true, status: true },
-            orderBy: {
-              createdAt: 'desc',
-            },
+            orderBy: [
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ]
           },
           requests: {
             select: {
@@ -275,9 +276,10 @@ describe('project.service', () => {
                 select: { id: true, priceUsd: true, extraDays: true, status: true },
               },
             },
-            orderBy: {
-              createdAt: 'desc',
-            },
+            orderBy: [
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ],
           },
           changeOrders: {
             select: {
@@ -295,9 +297,10 @@ describe('project.service', () => {
               status: true,
               createdAt: true,
             },
-            orderBy: {
-              createdAt: 'desc',
-            },
+            orderBy: [
+              { createdAt: 'desc' },
+              { id: 'desc' },
+            ],
           },
           _count: {
             select: {

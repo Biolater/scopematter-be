@@ -58,9 +58,10 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
             },
             scopeItems: {
                 select: { id: true, description: true, createdAt: true, name: true, status: true },
-                orderBy: {
-                    createdAt: 'desc',
-                },
+                orderBy: [
+                    { createdAt: "desc" },
+                    { id: "desc" },
+                ],
             },
             requests: {
                 select: {
@@ -72,9 +73,10 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
                         select: { id: true, priceUsd: true, extraDays: true, status: true }
                     }
                 },
-                orderBy: {
-                    createdAt: 'desc',
-                },
+                orderBy: [
+                    { createdAt: "desc" },
+                    { id: "desc" },
+                ],
             },
             changeOrders: {
                 select: {
@@ -92,9 +94,10 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
                     status: true,
                     createdAt: true
                 },
-                orderBy: {
-                    createdAt: 'desc',
-                },
+                orderBy: [
+                    { createdAt: "desc" },
+                    { id: "desc" },
+                  ],
             },
             _count: {
                 select: {
