@@ -9,7 +9,10 @@ declare global {
 const prisma: PrismaClient =
     global.prisma ||
     new PrismaClient({
-        log: process.env.NODE_ENV === 'development' ? ['query', 'error', 'warn'] : ['error'],
+        transactionOptions: {
+            maxWait: 10000,
+            timeout: 10000,
+        }
     });
 
 if (process.env.NODE_ENV !== "production") {
@@ -17,7 +20,7 @@ if (process.env.NODE_ENV !== "production") {
 }
 
 // Graceful shutdown
-process.on('beforeExit', async () => {
+process.on("beforeExit", async () => {
     await prisma.$disconnect();
 });
 
