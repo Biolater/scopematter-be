@@ -26,6 +26,14 @@ export function handleServiceError({ res, e, fallbackMsg }: { res: Response, e: 
         return sendError({ res, message: "Change order not found", code: ErrorCodes.NOT_FOUND, status: 404 });
       case ServiceErrorCodes.INVALID_STATUS_UPDATE:
         return sendError({ res, message: "Invalid status update", code: ErrorCodes.VALIDATION_ERROR, status: 400 });
+
+      // ShareLink
+      case ServiceErrorCodes.SHARE_LINK_NOT_FOUND:
+        return sendError({ res, message: "Share link not found", code: ErrorCodes.NOT_FOUND, status: 404 });
+      case ServiceErrorCodes.SHARE_LINK_NOT_ACTIVE:
+        return sendError({ res, message: "Share link not active", code: ErrorCodes.NOT_FOUND, status: 404 });
+      case ServiceErrorCodes.SHARE_LINK_EXPIRED:
+        return sendError({ res, message: "Share link expired", code: ErrorCodes.NOT_FOUND, status: 404 });
       default:
         return sendError({ res, message: "Unknown error", code: ErrorCodes.DATABASE_ERROR, status: 500 });
     }

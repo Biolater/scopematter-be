@@ -37,10 +37,11 @@ Defined in `prisma/schema.prisma`:
 - Models:
   - `AppUser { id, clerkId (unique), email (unique), firstName?, lastName?, imageUrl?, isActive, projects[], changeOrders[], createdAt, updatedAt }`
   - `Client { id, name, email?, company?, projects[], createdAt, updatedAt }`
-  - `Project { id, name, description?, status: ProjectStatus, userId -> AppUser, clientId -> Client, scopeItems[], requests[], changeOrders[], createdAt, updatedAt }`
+  - `Project { id, name, description?, status: ProjectStatus, userId -> AppUser, clientId -> Client, scopeItems[], requests[], changeOrders[], shareLink[], createdAt, updatedAt }`
   - `ScopeItem { id, projectId -> Project, name, description, status: scopeItemStatus, createdAt, updatedAt }`
   - `Request { id, projectId -> Project, description, status: RequestStatus, changeOrder?, createdAt, updatedAt }`
   - `ChangeOrder { id, requestId (unique) -> Request, projectId -> Project, userId -> AppUser, priceUsd Decimal(10,2), extraDays?, status: ChangeOrderStatus, createdAt, updatedAt }`
+  - `ShareLink { id, projectId -> Project, tokenHash (unique), expiresAt?, isActive, showScopeItems, showRequests, showChangeOrders, viewCount, lastViewedAt?, revokedAt?, createdAt, updatedAt }`
 
 ### API Routes (mounted in `src/index.ts`)
 - `/webhooks` → `src/routes/webhook.router.ts`
@@ -68,8 +69,14 @@ Defined in `prisma/schema.prisma`:
       - `GET /:id` get change order
       - `PUT /:id` update change order
       - `DELETE /:id` delete change order
+    - `/:projectId/share-link` → `src/routes/shareLink.router.ts`
+      - `POST /` create share link
+      - `GET /` list share links
+      - `DELETE /:id` revoke share link
 - `/api/v1/dashboard` → `src/routes/dashboard.router.ts` (auth required)
   - `GET /` get dashboard metrics and activity
+- `/public` → `src/routes/public.router.ts`
+  - `GET /share/:token` publicly resolves a share token to a read-only project view
 - Misc endpoints in `src/index.ts`:
   - `GET /health`
   - `GET /protected` (auth required) returns user context
@@ -84,6 +91,12 @@ Defined in `prisma/schema.prisma`:
   - Create/list/update/delete; status can move from `PENDING` to `IN_SCOPE` or `OUT_OF_SCOPE`.
 - ChangeOrder: `src/controllers/changeOrder.controller.ts`
   - Create/list/get/update/delete; only for `OUT_OF_SCOPE` requests without existing change order.
+  - Export single change order as PDF (`GET /:id/export`).
+- ShareLink: `src/controllers/shareLink.controller.ts`
+  - Create share link for a project (auth required).
+  - Get all share links for a project (auth required).
+  - Revoke a specific share link (auth required).
+  - Publicly resolve a share token (no auth) to read-only project summary.
 - Dashboard: `src/controllers/dashboard.controller.ts`
   - Get dashboard metrics, activity feed, and quick stats for authenticated user.
 - Webhook: `src/controllers/clerk.controller.ts`
@@ -101,6 +114,7 @@ Defined in `prisma/schema.prisma`:
   - Create: requires `name`, `description`, and `userId`.
   - Update: supports `name`, `description`, and `status` updates.
   - Delete: uses `deleteMany` with project validation.
+  - Export: returns project + client + ordered scope items for PDF generation.
 - Request: `src/services/request.service.ts`
   - Create: defaults to `PENDING` status.
   - Update: allows changing `description` and `status` (validated by Zod); ownership enforced.
@@ -109,6 +123,12 @@ Defined in `prisma/schema.prisma`:
   - Create: only from `Request` in `OUT_OF_SCOPE`, without existing change order, and owned by user.
   - Update: only when current status is `PENDING`; validates allowed transitions; returns entity with `request` summary.
   - Delete: only when status is `PENDING`.
+  - Export: returns project (with client) and the specific change order (with request) for PDF generation.
+ - ShareLink: `src/services/shareLink.service.ts`
+  - `createShareLink`: verifies ownership; generates secure token; stores sha256(token) only; returns `{ id, url, expiresAt?, show* flags, createdAt }`.
+  - `getShareLink`: validates token, active flag, and expiry; increments `viewCount`/`lastViewedAt`; filters payload by `show*` flags.
+  - `getShareLinks`: lists all share links for a project with metadata (view counts, expiry, permissions).
+  - `revokeShareLink`: deactivates a share link by setting `isActive: false` and `revokedAt` timestamp.
 - Dashboard: `src/services/dashboard.service.ts`
   - Aggregates metrics (projects, scope items, requests, change orders) with growth calculations.
   - Generates recent activity feed from projects, requests, and change orders.
@@ -126,6 +146,9 @@ Defined in `prisma/schema.prisma`:
   - `deleteScopeItemSchema`: `{ id: cuid }`
   - `updateScopeItemSchema`: `{ description: string (1..1000), name: string (1..100), status: enum(PENDING | COMPLETED | IN_PROGRESS) }`.
   - Types: `CreateScopeItemSchema`, `DeleteScopeItemSchema`, `UpdateScopeItemSchema`.
+ - ShareLink `src/validation/shareLink.schema.ts`
+  - `createShareLinkSchema`: `{ expiresAt?: date, showScopeItems?: boolean, showRequests?: boolean, showChangeOrders?: boolean }`
+  - Types: `CreateShareLinkSchema`.
 - Request `src/validation/request.schema.ts`
   - `createRequestSchema`: `{ description: string (1..2000) }`
   - `updateRequestSchema`: `{ description?: string (1..2000), status?: enum(IN_SCOPE | OUT_OF_SCOPE | PENDING) }`.
@@ -147,6 +170,8 @@ Defined in `prisma/schema.prisma`:
   - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`, `DeleteChangeOrderInput`.
 - Dashboard `src/lib/types/dashboard.ts`
   - `GetDashboardInput`, `GetDashboardOutput`, `DashboardMetrics`, `DashboardActivity`, `DashboardActivityType`, `DashboardQuickStats`.
+ - ShareLink `src/lib/types/shareLink.ts`
+  - `CreateShareLinkInput`, `GetShareLinkInput`, `GetShareLinksInput`, `RevokeShareLinkInput`.
 
 ### Prisma Types (from `@prisma/client`)
 - Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`.
@@ -181,6 +206,12 @@ Defined in `prisma/schema.prisma`:
   - `GET /api/v1/projects/:projectId/change-orders/:id` → ChangeOrder (with request summary)
   - `PUT /api/v1/projects/:projectId/change-orders/:id` body: `UpdateChangeOrderSchema` → ChangeOrder
   - `DELETE /api/v1/projects/:projectId/change-orders/:id` → deleted ChangeOrder
+  - `GET /api/v1/projects/:projectId/change-orders/:id/export` → PDF stream
+ - Share Links
+  - `POST /api/v1/projects/:projectId/share-link` body: `CreateShareLinkSchema` → `{ id, url, expiresAt?, showScopeItems?, showRequests?, showChangeOrders?, createdAt }`
+  - `GET /api/v1/projects/:projectId/share-link` → `[{ id, createdAt, expiresAt?, revokedAt?, isActive, viewCount, lastViewedAt?, permissions }]`
+  - `DELETE /api/v1/projects/:projectId/share-link/:id` → `{ id }`
+  - `GET /public/share/:token` → public project view `{ project, client, scopeItems?, requests?, changeOrders?, permissions }`
 - Dashboard
   - `GET /api/v1/dashboard` → Dashboard metrics, recent activity, and quick stats
 - Webhooks

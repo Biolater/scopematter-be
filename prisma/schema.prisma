@@ -36,6 +36,7 @@ enum scopeItemStatus {
 
 // ---------------- Models ----------------
 
+
 // Clerk-backed freelancer user
 model AppUser {
   id      String @id @default(cuid())
@@ -53,6 +54,7 @@ model AppUser {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 }
+
 
 // Client (not logging in, but kept for reference / PDF output)
 model Client {
@@ -84,6 +86,7 @@ model Project {
   scopeItems   ScopeItem[]
   requests     Request[]
   changeOrders ChangeOrder[]
+  shareLink    ShareLink[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
@@ -136,4 +139,26 @@ model ChangeOrder {
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
+
+model ShareLink {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tokenHash  String   @unique           // sha256(base64url(token))
+  expiresAt  DateTime?
+  isActive   Boolean  @default(true)
+
+  // what to expose (future-proof)
+  showScopeItems    Boolean @default(true)
+  showRequests      Boolean @default(true)
+  showChangeOrders  Boolean @default(true)
+
+  viewCount  Int      @default(0)
+  lastViewedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+  updatedAt  DateTime @updatedAt
 }

@@ -12,6 +12,11 @@ export const ServiceErrorCodes = {
     // ChangeOrder
     CHANGE_ORDER_NOT_FOUND: "CHANGE_ORDER_NOT_FOUND",
     INVALID_STATUS_UPDATE: "INVALID_STATUS_UPDATE",
+
+    // ShareLink
+    SHARE_LINK_NOT_FOUND: "SHARE_LINK_NOT_FOUND",
+    SHARE_LINK_NOT_ACTIVE: "SHARE_LINK_NOT_ACTIVE",
+    SHARE_LINK_EXPIRED: "SHARE_LINK_EXPIRED",
 } as const;
 
 export type ServiceErrorCode =

@@ -7,6 +7,7 @@ import { createProjectController, deleteProjectController, getProjectController,
 import scopeItemRouter from "./scopeItem.router";
 import requestRouter from "./request.router";
 import changeOrderRouter from "./changeOrder.router";
+import shareLinkRouter from "./shareLink.router";
 
 const projectRouter = Router();
 
@@ -27,5 +28,7 @@ projectRouter.use("/:projectId/scope-items", scopeItemRouter);
 projectRouter.use("/:projectId/requests", requestRouter);
 
 projectRouter.use("/:projectId/change-orders", changeOrderRouter);
+
+projectRouter.use("/:projectId/share-link", shareLinkRouter);
 
 export default projectRouter;   
