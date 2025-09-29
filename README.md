@@ -5,7 +5,7 @@
 </p>
 
 <p align="center">
-  <img src="../frontend/banner.png" alt="ScopeMatter Banner" width="600" />
+  <img src="assets/banner.png" alt="ScopeMatter Banner" width="600" />
 </p>
 
 <p align="center">
