@@ -10,140 +10,155 @@ datasource db {
 }
 
 // ---------------- Enums ----------------
-enum Chain {
-  ETH_MAINNET
-  // add more later: POLYGON_MAINNET, ARBITRUM_ONE, BSC_MAINNET
-}
-
-enum Asset {
-  ETH
-  USDT
-}
-
-enum PaymentLinkStatus {
-  ACTIVE
-  INACTIVE
-}
-
-enum TxStatus {
+enum RequestStatus {
   PENDING
-  SUCCESS
-  FAILED
+  IN_SCOPE
+  OUT_OF_SCOPE
+}
+
+enum ChangeOrderStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum ProjectStatus {
+  PENDING
+  IN_PROGRESS
+  COMPLETED
+}
+
+enum scopeItemStatus {
+  PENDING
+  COMPLETED
+  IN_PROGRESS
 }
 
 // ---------------- Models ----------------
 
-// Clerk-backed app user
+
+// Clerk-backed freelancer user
 model AppUser {
-  id           String    @id @default(cuid())
+  id      String @id @default(cuid())
+  clerkId String @unique
+  email   String @unique
 
-  // Clerk reference
-  clerkId      String    @unique
-  email        String    @unique
+  firstName String?
+  lastName  String?
+  imageUrl  String?
+  isActive  Boolean @default(true)
 
-  // Display fields
-  username     String?   @unique  // optional now, can be required later
-  firstName    String?
-  lastName     String?
-  imageUrl     String?   // Clerk provides default
-
-  // Relations
-  wallets      Wallet[]
-  paymentLinks PaymentLink[]
-  transactions Transaction[]
-
-  // System flags
-  isActive     Boolean   @default(true)
-
-  // Audit fields
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
-}
-// Non-custodial destination(s) the freelancer controls
-model Wallet {
-  id     String  @id @default(cuid())
-  userId String
-  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
-
-  address   String
-  chain     Chain
-  isPrimary Boolean @default(false)
-
-  paymentLinks PaymentLink[] // <— back relation added
+  projects     Project[]
+  changeOrders ChangeOrder[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  @@unique([userId, chain, address])
-  @@index([userId, chain, isPrimary])
 }
 
-// Shareable link a client pays into; maps to a specific wallet + asset
-model PaymentLink {
-  id     String  @id @default(cuid())
-  userId String
-  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  walletId String
-  wallet   Wallet @relation(fields: [walletId], references: [id], onDelete: Restrict)
+// Client (not logging in, but kept for reference / PDF output)
+model Client {
+  id      String  @id @default(cuid())
+  name    String
+  email   String?
+  company String?
 
-  // public slug (e.g., paylynk.app/p/:slug)
-  slug String @unique @default(cuid())
-
-  // Optional pre-filled USD amount client sees; can be empty for “enter any amount”
-  amountUsd Decimal? @db.Decimal(18, 2)
-
-  // What will be delivered to the wallet
-  asset Asset
-  chain Chain
-
-  status PaymentLinkStatus @default(ACTIVE)
-  memo   String?
+  projects Project[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
-
-  transactions Transaction[]
-
-  @@index([userId, status])
 }
 
-// Logged result of an Onramper payment → crypto delivered to wallet
-model Transaction {
+// Project created by freelancer
+model Project {
+  id          String  @id @default(cuid())
+  name        String
+  description String?
+
+  status ProjectStatus @default(PENDING)
+
+  userId String
+  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  clientId String
+  client   Client @relation(fields: [clientId], references: [id], onDelete: Cascade)
+
+  scopeItems   ScopeItem[]
+  requests     Request[]
+  changeOrders ChangeOrder[]
+  shareLink    ShareLink[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Items explicitly agreed in project scope
+model ScopeItem {
+  id          String          @id @default(cuid())
+  projectId   String
+  name        String
+  project     Project         @relation(fields: [projectId], references: [id], onDelete: Cascade)
+  status      scopeItemStatus @default(PENDING)
+  description String
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Request {
+  id        String  @id @default(cuid())
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  description String
+  status      RequestStatus @default(PENDING)
+
+  changeOrder ChangeOrder?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// Formalized out-of-scope work
+model ChangeOrder {
   id String @id @default(cuid())
 
-  // Who ultimately owns this (via link)
-  userId String? // <— made optional for SetNull
-  user   AppUser? @relation(fields: [userId], references: [id], onDelete: SetNull)
+  requestId String  @unique
+  request   Request @relation(fields: [requestId], references: [id], onDelete: Cascade)
 
-  paymentLinkId String
-  paymentLink   PaymentLink @relation(fields: [paymentLinkId], references: [id], onDelete: Cascade)
+  projectId String
+  project   Project @relation(fields: [projectId], references: [id], onDelete: Cascade)
 
-  // Onramper identifiers & blockchain tx
-  onramperTxId String? @unique
-  txHash       String? @unique
-  chain        Chain
-  asset        Asset
+  userId String
+  user   AppUser @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  // Amounts
-  // USD paid by client (post-processor), stored to 2 decimals
-  amountUsd    Decimal @db.Decimal(18, 2)
-  // Crypto delivered to freelancer wallet (high precision)
-  cryptoAmount Decimal @db.Decimal(38, 18)
-
-  // Platform economics
-  feeBps Int      @default(150) // 1.5% default; adjust per-transaction if needed
-  feeUsd Decimal? @db.Decimal(18, 2) // optional denormalized fee in USD
-
-  status TxStatus @default(PENDING)
-
-  // Raw payloads if you want lightweight auditing
-  providerRaw Json?
-  notes       String?
+  // Pricing / delivery terms
+  priceUsd  Decimal           @db.Decimal(10, 2)
+  extraDays Int?
+  status    ChangeOrderStatus @default(PENDING)
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+}
 
-  @@index([paymentLinkId, status])
-  @@index([chain, asset])
+model ShareLink {
+  id         String   @id @default(cuid())
+  projectId  String
+  project    Project  @relation(fields: [projectId], references: [id], onDelete: Cascade)
+
+  tokenHash  String   @unique           // sha256(base64url(token))
+  expiresAt  DateTime?
+  isActive   Boolean  @default(true)
+
+  // what to expose (future-proof)
+  showScopeItems    Boolean @default(true)
+  showRequests      Boolean @default(true)
+  showChangeOrders  Boolean @default(true)
+
+  viewCount  Int      @default(0)
+  lastViewedAt DateTime?
+
+  createdAt  DateTime @default(now())
+  revokedAt  DateTime?
+  updatedAt  DateTime @updatedAt
 }

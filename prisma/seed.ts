@@ -1,64 +1,69 @@
-import { PrismaClient } from "@prisma/client";
+/* import { PrismaClient } from "@prisma/client";
 
 const prisma = new PrismaClient();
 
 async function main() {
-  // Create a mock user
+  // 1. Create a mock freelancer (AppUser)
   const user = await prisma.appUser.create({
     data: {
       clerkId: "mock_clerk_id_123",
-      email: "demo@paylynk.app",
-      name: "Demo User",
+      email: "freelancer@example.com",
+      firstName: "Alice",
+      lastName: "Johnson",
+      imageUrl: "https://via.placeholder.com/150",
     },
   });
 
-  // Create wallet for that user
-  const wallet = await prisma.wallet.create({
+  // 2. Create a mock client
+  const client = await prisma.client.create({
     data: {
-      userId: user.id,
-      address: "0x1234567890abcdef1234567890abcdef12345678",
-      chain: "ETH_MAINNET",
-      isPrimary: true,
+      name: "Acme Corp",
+      email: "client@acme.com",
+      company: "Acme Corporation",
     },
   });
 
-  // Create a payment link
-  const paymentLink = await prisma.paymentLink.create({
+  // 3. Create a project
+  const project = await prisma.project.create({
     data: {
+      name: "Marketing Website Revamp",
+      description: "Build a new landing page and blog for Acme Corp",
       userId: user.id,
-      walletId: wallet.id,
-      slug: "demo-link-001",
-      asset: "USDT",
-      chain: "ETH_MAINNET",
-      amountUsd: 100.0,
-      status: "ACTIVE",
-      memo: "Demo design payment",
+      clientId: client.id,
     },
   });
 
-  // Create a transaction for that link
-  await prisma.transaction.create({
+  // 4. Add scope items
+  await prisma.scopeItem.createMany({
+    data: [
+      { projectId: project.id, description: "Landing page design" },
+      { projectId: project.id, description: "3-page blog implementation" },
+      { projectId: project.id, description: "Contact form integration" },
+    ],
+  });
+
+  // 5. Add a client request
+  const request = await prisma.request.create({
     data: {
-      userId: user.id,
-      paymentLinkId: paymentLink.id,
-      onramperTxId: "onramper_tx_mock_123",
-      txHash: "0xabcdefabcdefabcdefabcdefabcdefabcdef",
-      chain: "ETH_MAINNET",
-      asset: "USDT",
-      amountUsd: 100.0,
-      cryptoAmount: 98.5, // after fee
-      feeBps: 150,
-      feeUsd: 1.5,
-      status: "SUCCESS",
-      providerRaw: {
-        orderId: "mock_order_123",
-        method: "visa",
-        status: "completed",
-      },
+      projectId: project.id,
+      description: "Add a dashboard export to CSV",
+      status: "OUT_OF_SCOPE",
     },
   });
 
-  console.log("✅ Mock data inserted");
+  // 6. Create a change order for that request
+  await prisma.changeOrder.create({
+    data: {
+      requestId: request.id,
+      projectId: project.id,
+      userId: user.id,
+      priceUsd: 300.0,
+      extraDays: 5,
+      status: "PENDING",
+    },
+  });
+
+  console.log("✅ Mock data for Scopematter inserted!");
 }
 
 main()
@@ -69,3 +74,4 @@ main()
   .finally(async () => {
     await prisma.$disconnect();
   });
+ */

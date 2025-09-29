@@ -9,12 +9,19 @@ declare global {
 const prisma: PrismaClient =
     global.prisma ||
     new PrismaClient({
-        // optional: add logging, middleware, etc.
-        
+        transactionOptions: {
+            maxWait: 10000,
+            timeout: 10000,
+        }
     });
 
 if (process.env.NODE_ENV !== "production") {
     global.prisma = prisma;
 }
+
+// Graceful shutdown
+process.on("beforeExit", async () => {
+    await prisma.$disconnect();
+});
 
 export default prisma;

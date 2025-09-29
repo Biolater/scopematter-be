@@ -9,4 +9,6 @@ export const ENV = {
     DATABASE_URL: process.env.DATABASE_URL || "",
     DIRECT_URL: process.env.DIRECT_URL || "",
     CLERK_WEBHOOK_SECRET: process.env.CLERK_WEBHOOK_SECRET || "",   
+    INTERNAL_API_SECRET: process.env.INTERNAL_API_SECRET || "",
+    APP_URL: process.env.APP_URL || "",
 };
