@@ -3,9 +3,10 @@ import prisma from "../lib/prisma";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import { redis } from "../lib/redis";
+import { invalidateDashboardCache } from "../lib/cache";
 
 export const createProject = async (data: CreateProjectInput) => {
-    return prisma.$transaction(async (tx) => {
+    const project = await prisma.$transaction(async (tx) => {
         const client = await tx.client.create({
             data: {
                 name: data.client.name,
@@ -14,7 +15,7 @@ export const createProject = async (data: CreateProjectInput) => {
             },
         });
 
-        const project = await tx.project.create({
+        return tx.project.create({
             data: {
                 name: data.name,
                 description: data.description,
@@ -22,15 +23,15 @@ export const createProject = async (data: CreateProjectInput) => {
                 clientId: client.id,
             },
         });
-
-        // Invalidate caches so reads are consistent
-        await Promise.all([
-            redis.del(`projects:${data.userId}`),  // project list
-            redis.del(`project:${project.id}`),   // single project
-        ]);
-
-        return project;
     });
+
+    await Promise.all([
+        redis.del(`projects:${data.userId}`),  // project list
+        redis.del(`project:${project.id}`),   // single project
+        invalidateDashboardCache(data.userId),
+    ]);
+
+    return project;
 };
 
 
@@ -161,13 +162,14 @@ export const deleteProject = async ({ id, userId }: DeleteProjectInput) => {
     await Promise.all([
         redis.del(`project:${id}`),
         redis.del(`projects:${userId}`),
+        invalidateDashboardCache(userId),
     ]);
 
     return deletedProject;
 };
 
 export const updateProject = async ({ id, userId, data }: UpdateProjectInput) => {
-    return await prisma.$transaction(async (tx) => {
+    const updatedProject = await prisma.$transaction(async (tx) => {
         // Check project exists and belongs to user
         const project = await tx.project.findFirst({
             where: { id, userId },
@@ -192,7 +194,7 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
         }
 
         // Update project
-        const updatedProject = await tx.project.update({
+        const projectUpdate = await tx.project.update({
             where: { id },
             data: projectUpdateData,
         });
@@ -218,12 +220,14 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
             }
         }
 
-        // Invalidate caches
-        await Promise.all([
-            redis.del(`project:${id}`),
-            redis.del(`projects:${userId}`),
-        ]);
-
-        return updatedProject;
+        return projectUpdate;
     });
+
+    await Promise.all([
+        redis.del(`project:${id}`),
+        redis.del(`projects:${userId}`),
+        invalidateDashboardCache(userId),
+    ]);
+
+    return updatedProject;
 };

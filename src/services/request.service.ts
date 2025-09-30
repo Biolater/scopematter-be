@@ -2,9 +2,10 @@ import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import prisma from "../lib/prisma";
 import { CreateRequestInput, GetRequestsInput, UpdateRequestInput, DeleteRequestInput } from "../lib/types/request";
+import { invalidateDashboardCache } from "../lib/cache";
 
 export const createRequest = async ({ projectId, description, userId }: CreateRequestInput) => {
-  return prisma.$transaction(async (tx) => {
+  const request = await prisma.$transaction(async (tx) => {
     const project = await tx.project.findFirst({
       where: { id: projectId, userId },
     });
@@ -16,6 +17,10 @@ export const createRequest = async ({ projectId, description, userId }: CreateRe
       data: { projectId, description, status: "PENDING" },
     });
   });
+
+  await invalidateDashboardCache(userId);
+
+  return request;
 };
 
 export const getRequests = async ({ projectId, userId }: GetRequestsInput) => {
@@ -36,12 +41,12 @@ export const getRequests = async ({ projectId, userId }: GetRequestsInput) => {
 };
 
 export const updateRequest = async ({ id, userId, data }: UpdateRequestInput) => {
-  return prisma.$transaction(async (tx) => {
-    const request = await tx.request.findFirst({
+  const request = await prisma.$transaction(async (tx) => {
+    const existingRequest = await tx.request.findFirst({
       where: { id, project: { userId } },
     });
 
-    if (!request) {
+    if (!existingRequest) {
       throw new ServiceError(ServiceErrorCodes.REQUEST_NOT_FOUND);
     }
 
@@ -55,15 +60,19 @@ export const updateRequest = async ({ id, userId, data }: UpdateRequestInput) =>
       data: cleanData,
     });
   });
+
+  await invalidateDashboardCache(userId);
+
+  return request;
 };
 
 export const deleteRequest = async ({ id, userId }: DeleteRequestInput) => {
-  return prisma.$transaction(async (tx) => {
-    const request = await tx.request.findFirst({
+  const request = await prisma.$transaction(async (tx) => {
+    const existingRequest = await tx.request.findFirst({
       where: { id, project: { userId } },
     });
 
-    if (!request) {
+    if (!existingRequest) {
       throw new ServiceError(ServiceErrorCodes.REQUEST_NOT_FOUND);
     }
 
@@ -71,4 +80,8 @@ export const deleteRequest = async ({ id, userId }: DeleteRequestInput) => {
       where: { id },
     });
   });
+
+  await invalidateDashboardCache(userId);
+
+  return request;
 };

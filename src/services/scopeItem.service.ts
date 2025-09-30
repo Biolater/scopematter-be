@@ -8,9 +8,10 @@ import {
 } from "../lib/types/scopeItem";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
+import { invalidateDashboardCache } from "../lib/cache";
 
 export const createScopeItem = async ({ projectId, description, userId, name }: CreateScopeItemInput) => {
-    return prisma.$transaction(async (tx) => {
+    const scopeItem = await prisma.$transaction(async (tx) => {
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
         });
@@ -23,6 +24,10 @@ export const createScopeItem = async ({ projectId, description, userId, name }: 
             data: { description, projectId, name },
         });
     });
+
+    await invalidateDashboardCache(userId);
+
+    return scopeItem;
 };
 
 export const getScopeItems = async ({ projectId, userId }: GetScopeItemsInput) => {
@@ -40,7 +45,7 @@ export const getScopeItems = async ({ projectId, userId }: GetScopeItemsInput) =
 };
 
 export const deleteScopeItem = async ({ projectId, id, userId }: DeleteScopeItemInput) => {
-    return prisma.$transaction(async (tx) => {
+    const result = await prisma.$transaction(async (tx) => {
         // Ensure project belongs to user
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -61,11 +66,15 @@ export const deleteScopeItem = async ({ projectId, id, userId }: DeleteScopeItem
 
         return { id }; // return minimal response
     });
+
+    await invalidateDashboardCache(userId);
+
+    return result;
 };
 
 // Update
 export const updateScopeItem = async ({ projectId, id, userId, description, name, status }: UpdateScopeItemInput) => {
-    return prisma.$transaction(async (tx) => {
+    const scopeItem = await prisma.$transaction(async (tx) => {
         // Ensure project belongs to user
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -88,6 +97,10 @@ export const updateScopeItem = async ({ projectId, id, userId, description, name
         // Fetch the updated item to return it
         return tx.scopeItem.findUnique({ where: { id } });
     });
+
+    await invalidateDashboardCache(userId);
+
+    return scopeItem;
 };
 
 
