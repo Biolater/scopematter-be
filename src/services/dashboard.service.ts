@@ -1,8 +1,15 @@
 import prisma from "../lib/prisma";
+import { redis } from "../lib/redis";
 import { DashboardActivity, GetDashboardInput, GetDashboardOutput } from "../lib/types/dashboard";
 import { getStartOfMonth, getStartOfWeek } from "../utils/date";
 
 export const getDashboard = async ({ userId }: GetDashboardInput): Promise<GetDashboardOutput> => {
+  const cacheKey = `dashboard:${userId}`;
+  const cachedDashboard = await redis.get<GetDashboardOutput>(cacheKey);
+  if (cachedDashboard) {
+    return cachedDashboard;
+  }
+
   const startOfMonth = getStartOfMonth();
   const startOfWeek = getStartOfWeek();
 
@@ -134,7 +141,7 @@ export const getDashboard = async ({ userId }: GetDashboardInput): Promise<GetDa
   };
 
   // ===== Final Response =====
-  return {
+  const dashboard: GetDashboardOutput = {
     metrics: {
       projects: { total: totalProjects, growth: newProjectsThisMonth, growthPeriod: "month" },
       scopeItems: { total: totalScopeItems, growth: newScopeThisWeek, growthPeriod: "week" },
@@ -156,4 +163,10 @@ export const getDashboard = async ({ userId }: GetDashboardInput): Promise<GetDa
     recentActivity,
     quickStats,
   };
+
+  await redis.set(cacheKey, dashboard, {
+    ex: 60 * 5, // 5 minutes
+  });
+
+  return dashboard;
 };
