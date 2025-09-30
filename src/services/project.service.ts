@@ -2,6 +2,7 @@ import { CreateProjectInput, DeleteProjectInput, GetProjectInput, GetProjectsInp
 import prisma from "../lib/prisma";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
+import { redis } from "../lib/redis";
 
 export const createProject = async (data: CreateProjectInput) => {
     return prisma.$transaction(async (tx) => {
@@ -13,7 +14,7 @@ export const createProject = async (data: CreateProjectInput) => {
             },
         });
 
-        return await tx.project.create({
+        const project = await tx.project.create({
             data: {
                 name: data.name,
                 description: data.description,
@@ -21,11 +22,25 @@ export const createProject = async (data: CreateProjectInput) => {
                 clientId: client.id,
             },
         });
+
+        // Invalidate caches so reads are consistent
+        await Promise.all([
+            redis.del(`projects:${data.userId}`),  // project list
+            redis.del(`project:${project.id}`),   // single project
+        ]);
+
+        return project;
     });
 };
 
+
 export const getProjects = async ({ userId }: GetProjectsInput) => {
-    return  prisma.project.findMany({
+    const cacheKey = `projects:${userId}`;
+    const cachedProjects = await redis.get(cacheKey);
+    if (cachedProjects) {
+        return cachedProjects;
+    }
+    const projects = await prisma.project.findMany({
         where: { userId },
         include: {
             client: {
@@ -47,9 +62,18 @@ export const getProjects = async ({ userId }: GetProjectsInput) => {
             createdAt: 'desc',
         },
     });
+    await redis.set(cacheKey, projects, {
+        ex: 60 * 60 * 24, // 24 hours
+    });
+    return projects;
 };
 
 export const getProject = async ({ id, userId }: GetProjectInput) => {
+    const cacheKey = `project:${id}`;
+    const cachedProject = await redis.get(cacheKey);
+    if (cachedProject) {
+        return cachedProject;
+    }
     const project = await prisma.project.findFirst({
         where: { id, userId },
         include: {
@@ -97,7 +121,7 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
                 orderBy: [
                     { createdAt: "desc" },
                     { id: "desc" },
-                  ],
+                ],
             },
             _count: {
                 select: {
@@ -112,20 +136,34 @@ export const getProject = async ({ id, userId }: GetProjectInput) => {
     if (!project) {
         throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
     }
+    await redis.set(cacheKey, project, {
+        ex: 60 * 60 * 24, // 24 hours
+    });
 
     return project;
 };
 
 export const deleteProject = async ({ id, userId }: DeleteProjectInput) => {
+    // 1. Verify project exists
     const project = await prisma.project.findFirst({
         where: { id, userId },
     });
     if (!project) {
         throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
     }
-    return await prisma.project.delete({
+
+    // 2. Delete from DB
+    const deletedProject = await prisma.project.delete({
         where: { id },
     });
+
+    // 3. Invalidate caches
+    await Promise.all([
+        redis.del(`project:${id}`),
+        redis.del(`projects:${userId}`),
+    ]);
+
+    return deletedProject;
 };
 
 export const updateProject = async ({ id, userId, data }: UpdateProjectInput) => {
@@ -135,7 +173,7 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
             where: { id, userId },
             include: { client: true },
         });
-        
+
         if (!project) {
             throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
         }
@@ -151,7 +189,7 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
 
         if (data.status !== undefined) {
             projectUpdateData.status = data.status;
-          }
+        }
 
         // Update project
         const updatedProject = await tx.project.update({
@@ -179,6 +217,12 @@ export const updateProject = async ({ id, userId, data }: UpdateProjectInput) =>
                 });
             }
         }
+
+        // Invalidate caches
+        await Promise.all([
+            redis.del(`project:${id}`),
+            redis.del(`projects:${userId}`),
+        ]);
 
         return updatedProject;
     });
