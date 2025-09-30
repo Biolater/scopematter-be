@@ -693,6 +693,7 @@ describe("shareLink.service", () => {
                     isActive: true,
                     viewCount: 5,
                     lastViewedAt: now,
+                    projectId,
                     permissions: {
                         showScopeItems: true,
                         showRequests: true,
@@ -707,6 +708,7 @@ describe("shareLink.service", () => {
                     isActive: true,
                     viewCount: 0,
                     lastViewedAt: null,
+                    projectId,
                     permissions: {
                         showScopeItems: false,
                         showRequests: true,
@@ -721,6 +723,7 @@ describe("shareLink.service", () => {
                     isActive: false,
                     viewCount: 10,
                     lastViewedAt: new Date(now.getTime() - 60 * 60 * 1000),
+                    projectId,
                     permissions: {
                         showScopeItems: true,
                         showRequests: false,
