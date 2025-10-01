@@ -123,7 +123,7 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) =
         orderBy: { createdAt: "desc" },
     });
 
-    return links.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime())  .map((l) => ({
+    return links.sort((a, b) => b.createdAt.getTime() - a.createdAt.getTime()).map((l) => ({
         id: l.id,
         createdAt: l.createdAt,
         expiresAt: l.expiresAt,
