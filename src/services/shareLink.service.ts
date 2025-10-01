@@ -3,9 +3,13 @@ import { ENV } from "../config/env";
 import prisma from "../lib/prisma";
 import {
     CreateShareLinkInput,
+    CreateShareLinkResponse,
     GetShareLinkInput,
+    GetShareLinkResponse,
     GetShareLinksInput,
-    RevokeShareLinkInput
+    ShareLinkListItem,
+    RevokeShareLinkInput,
+    RevokeShareLinkResponse,
 } from "../lib/types/shareLink";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
@@ -20,7 +24,7 @@ export const createShareLink = async ({
     showRequests = true,
     showChangeOrders = true,
     userId,
-}: CreateShareLinkInput) => {
+}: CreateShareLinkInput): Promise<CreateShareLinkResponse> => {
     return prisma.$transaction(async (tx) => {
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -56,7 +60,7 @@ export const createShareLink = async ({
 };
 
 // -------------------- Get single share link --------------------
-export const getShareLink = async ({ token }: GetShareLinkInput) => {
+export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetShareLinkResponse> => {
     // Derive hash to find link by token
     const tokenHash = createHash("sha256").update(token).digest("base64url");
     const shareLink = await prisma.shareLink.findUnique({
@@ -80,7 +84,7 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
     }
 
     const cacheKey = `share-link:${shareLink.id}`;
-    const cached = await redis.get(cacheKey);
+    const cached = await redis.get<GetShareLinkResponse>(cacheKey);
     if (cached) return cached;
 
     const { project } = shareLink;
@@ -93,7 +97,7 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
         },
     });
 
-    const data = {
+    const data: GetShareLinkResponse = {
         project: {
             name: project.name,
             description: project.description,
@@ -120,7 +124,8 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
         changeOrders: shareLink.showChangeOrders
             ? project.changeOrders.map((c) => ({
                 id: c.id,
-                priceUsd: c.priceUsd,
+                // Prisma Decimal -> number for DTO
+                priceUsd: Number(c.priceUsd),
                 extraDays: c.extraDays,
                 status: c.status,
             }))
@@ -137,9 +142,9 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
 };
 
 // -------------------- Get list of share links --------------------
-export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) => {
+export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput): Promise<ShareLinkListItem[]> => {
     const cacheKey = `share-links:${projectId}`;
-    const cachedShareLinks = await redis.get(cacheKey);
+    const cachedShareLinks = await redis.get<ShareLinkListItem[]>(cacheKey);
     if (cachedShareLinks) {
         return cachedShareLinks;
     }
@@ -154,7 +159,7 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) =
         orderBy: { createdAt: "desc" },
     });
 
-    const data = links.map((l) => ({
+    const data: ShareLinkListItem[] = links.map((l) => ({
         id: l.id,
         createdAt: l.createdAt,
         expiresAt: l.expiresAt,
@@ -175,7 +180,7 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) =
 };
 
 // -------------------- Revoke --------------------
-export const revokeShareLink = async ({ userId, id }: RevokeShareLinkInput) => {
+export const revokeShareLink = async ({ userId, id }: RevokeShareLinkInput): Promise<RevokeShareLinkResponse> => {
     const link = await prisma.shareLink.findFirst({
         where: { id, project: { userId } },
     });
