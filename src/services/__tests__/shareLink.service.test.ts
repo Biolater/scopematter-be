@@ -110,9 +110,9 @@ describe("shareLink.service", () => {
                     isActive: true,
                 },
             });
-            expect(result).toEqual({
+            expect(result).toEqual({    
                 id: shareLinkId,
-                url: expect.stringMatching(/\/p\//),
+                url: expect.stringMatching(/\/share\//),
                 expiresAt: null,
                 showScopeItems: true,
                 showRequests: true,

@@ -49,7 +49,7 @@ export const createShareLink = async ({
 
         return {
             id: shareLink.id,
-            url: `${ENV.APP_URL}/p/${token}`,
+            url: `${ENV.APP_URL}/share/${token}`,
             expiresAt: shareLink.expiresAt,
             showScopeItems: shareLink.showScopeItems,
             showRequests: shareLink.showRequests,
