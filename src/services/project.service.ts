@@ -162,6 +162,7 @@ export const deleteProject = async ({ id, userId }: DeleteProjectInput) => {
     await Promise.all([
         redis.del(`project:${id}`),
         redis.del(`projects:${userId}`),
+        redis.del(`share-links:${id}`),
         invalidateDashboardCache(userId),
     ]);
 

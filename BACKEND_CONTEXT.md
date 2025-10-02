@@ -10,10 +10,11 @@ This document summarizes the backend's structure, API routes, controllers, servi
 - Health check: `GET /health` returns `{ status: "ok" }`.
 - Webhook endpoint group: `/webhooks`.
 - API base path: `/api/v1`.
+- Public endpoints: `/public` for share link access.
 
 ### Environment
 `src/config/env.ts` exposes:
-- `PORT`, `NODE_ENV`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `DIRECT_URL`, `CLERK_WEBHOOK_SECRET`, `INTERNAL_API_SECRET`.
+- `PORT`, `NODE_ENV`, `CLERK_PUBLISHABLE_KEY`, `CLERK_SECRET_KEY`, `DATABASE_URL`, `DIRECT_URL`, `CLERK_WEBHOOK_SECRET`, `INTERNAL_API_SECRET`, `UPSTASH_REDIS_REST_URL`, `UPSTASH_REDIS_REST_TOKEN`, `APP_URL`.
 
 ### Auth and Request Context
 - `src/middleware/auth.ts` uses `@clerk/express` `getAuth(req)` to resolve `userId`.
@@ -26,6 +27,11 @@ All controllers use helpers in `src/utils/response.ts`:
 - Error: `{ success: false, data: null, error: { message, code, details? }, meta: {} }`.
 - Generic error codes in `src/utils/error-codes.ts`.
 - Service error mapping in `src/utils/error-mapper.ts` using `ServiceErrorCodes`.
+
+### Caching
+- Redis caching via `src/lib/redis.ts` using Upstash Redis.
+- Cache invalidation helpers in `src/lib/cache.ts`.
+- Dashboard and project data cached with TTL.
 
 ### Data Model (Prisma)
 Defined in `prisma/schema.prisma`:
@@ -58,6 +64,7 @@ Defined in `prisma/schema.prisma`:
       - `GET /` list scope items
       - `DELETE /:id` delete scope item
       - `PUT /:id` update scope item
+      - `GET /export` export scope items as PDF
     - `/:projectId/requests` → `src/routes/request.router.ts`
       - `POST /` create request
       - `GET /` list requests
@@ -69,6 +76,7 @@ Defined in `prisma/schema.prisma`:
       - `GET /:id` get change order
       - `PUT /:id` update change order
       - `DELETE /:id` delete change order
+      - `GET /:id/export` export change order as PDF
     - `/:projectId/share-link` → `src/routes/shareLink.router.ts`
       - `POST /` create share link
       - `GET /` list share links
@@ -87,11 +95,12 @@ Defined in `prisma/schema.prisma`:
   - create/get list/get one/update/delete using service layer; injects `req.user.id` and Zod-validated DTOs.
 - ScopeItem: `src/controllers/scopeItem.controller.ts`
   - CRUD within a project; validates ownership with `userId`; includes `name` and `status` fields.
+  - Export scope items as PDF with project and client details.
 - Request: `src/controllers/request.controller.ts`
   - Create/list/update/delete; status can move from `PENDING` to `IN_SCOPE` or `OUT_OF_SCOPE`.
 - ChangeOrder: `src/controllers/changeOrder.controller.ts`
   - Create/list/get/update/delete; only for `OUT_OF_SCOPE` requests without existing change order.
-  - Export single change order as PDF (`GET /:id/export`).
+  - Export single change order as PDF with project, client, and request details.
 - ShareLink: `src/controllers/shareLink.controller.ts`
   - Create share link for a project (auth required).
   - Get all share links for a project (auth required).
@@ -105,10 +114,10 @@ Defined in `prisma/schema.prisma`:
 ### Services and Core Business Rules
 - Project: `src/services/project.service.ts`
   - Create: transactionally creates `Client` then `Project`.
-  - Get list: filters by `userId`, includes `client` summary and counts.
+  - Get list: filters by `userId`, includes `client` summary and counts; cached with Redis.
   - Get one: includes `client`, `scopeItems`, `requests` (with nested `changeOrder`), and `changeOrders` (with nested `request`).
   - Update: partial update of `Project` and optionally `Client` fields; strips empty strings to `undefined`; supports `status` updates.
-  - Delete: ensures ownership.
+  - Delete: ensures ownership; invalidates related caches.
 - ScopeItem: `src/services/scopeItem.service.ts`
   - All operations verify the project belongs to the user.
   - Create: requires `name`, `description`, and `userId`.
@@ -116,7 +125,7 @@ Defined in `prisma/schema.prisma`:
   - Delete: uses `deleteMany` with project validation.
   - Export: returns project + client + ordered scope items for PDF generation.
 - Request: `src/services/request.service.ts`
-  - Create: defaults to `PENDING` status.
+  - Create: defaults to `PENDING` status; invalidates dashboard cache.
   - Update: allows changing `description` and `status` (validated by Zod); ownership enforced.
   - Delete: ensures ownership before deletion.
 - ChangeOrder: `src/services/changeOrder.service.ts`
@@ -124,13 +133,13 @@ Defined in `prisma/schema.prisma`:
   - Update: only when current status is `PENDING`; validates allowed transitions; returns entity with `request` summary.
   - Delete: only when status is `PENDING`.
   - Export: returns project (with client) and the specific change order (with request) for PDF generation.
- - ShareLink: `src/services/shareLink.service.ts`
-  - `createShareLink`: verifies ownership; generates secure token; stores sha256(token) only; returns `{ id, url, expiresAt?, show* flags, createdAt }`.
-  - `getShareLink`: validates token, active flag, and expiry; increments `viewCount`/`lastViewedAt`; filters payload by `show*` flags.
-  - `getShareLinks`: lists all share links for a project with metadata (view counts, expiry, permissions).
-  - `revokeShareLink`: deactivates a share link by setting `isActive: false` and `revokedAt` timestamp.
+- ShareLink: `src/services/shareLink.service.ts`
+  - `createShareLink`: verifies ownership; generates secure token; stores sha256(token) only; returns `CreateShareLinkResponse`.
+  - `getShareLink`: validates token, active flag, and expiry; increments `viewCount`/`lastViewedAt`; filters payload by `show*` flags; returns `GetShareLinkResponse`.
+  - `getShareLinks`: lists all share links for a project with metadata; returns `ShareLinkListItem[]`.
+  - `revokeShareLink`: deactivates a share link by setting `isActive: false` and `revokedAt` timestamp; returns `RevokeShareLinkResponse`.
 - Dashboard: `src/services/dashboard.service.ts`
-  - Aggregates metrics (projects, scope items, requests, change orders) with growth calculations.
+  - Aggregates metrics (projects, scope items, requests, change orders) with growth calculations; cached with Redis.
   - Generates recent activity feed from projects, requests, and change orders.
   - Provides quick stats for completed projects, pending requests, and change order breakdowns.
 - Clerk: `src/services/clerk.service.ts`
@@ -163,18 +172,19 @@ Defined in `prisma/schema.prisma`:
 - Project `src/lib/types/project.ts`
   - `CreateProjectInput`, `GetProjectsInput`, `GetProjectInput`, `DeleteProjectInput`, `UpdateProjectInput`, `ProjectUpdateData`, `ClientUpdateData`.
 - ScopeItem `src/lib/types/scopeItem.ts`
-  - `CreateScopeItemInput`, `GetScopeItemsInput`, `DeleteScopeItemInput`, `UpdateScopeItemInput`.
+  - `CreateScopeItemInput`, `GetScopeItemsInput`, `DeleteScopeItemInput`, `UpdateScopeItemInput`, `ExportScopeItemsInput`.
 - Request `src/lib/types/request.ts`
   - `CreateRequestInput`, `GetRequestsInput`, `UpdateRequestInput`, `DeleteRequestInput`.
 - ChangeOrder `src/lib/types/changeOrder.ts`
-  - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`, `DeleteChangeOrderInput`.
+  - `CreateChangeOrderInput`, `GetChangeOrdersInput`, `GetChangeOrderInput`, `UpdateChangeOrderInput`, `DeleteChangeOrderInput`, `ExportChangeOrderInput`.
 - Dashboard `src/lib/types/dashboard.ts`
   - `GetDashboardInput`, `GetDashboardOutput`, `DashboardMetrics`, `DashboardActivity`, `DashboardActivityType`, `DashboardQuickStats`.
- - ShareLink `src/lib/types/shareLink.ts`
-  - `CreateShareLinkInput`, `GetShareLinkInput`, `GetShareLinksInput`, `RevokeShareLinkInput`.
+- ShareLink `src/lib/types/shareLink.ts`
+  - Input: `CreateShareLinkInput`, `GetShareLinkInput`, `GetShareLinksInput`, `RevokeShareLinkInput`.
+  - Output: `CreateShareLinkResponse`, `GetShareLinkResponse`, `ShareLinkListItem`, `RevokeShareLinkResponse`, `ShareLinkPermissions`.
 
 ### Prisma Types (from `@prisma/client`)
-- Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`.
+- Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`, `ShareLink`.
 - Enums: `RequestStatus`, `ChangeOrderStatus`, `ProjectStatus`, `scopeItemStatus`.
 
 ### Middleware and Utilities
@@ -195,6 +205,7 @@ Defined in `prisma/schema.prisma`:
   - `GET /api/v1/projects/:projectId/scope-items` → ScopeItem[]
   - `DELETE /api/v1/projects/:projectId/scope-items/:id` → `{ id }`
   - `PUT /api/v1/projects/:projectId/scope-items/:id` body: `UpdateScopeItemSchema` → ScopeItem
+  - `GET /api/v1/projects/:projectId/scope-items/export` → PDF stream
 - Requests
   - `POST /api/v1/projects/:projectId/requests` body: `CreateRequestSchema` → Request
   - `GET /api/v1/projects/:projectId/requests` → Request[]
@@ -207,18 +218,22 @@ Defined in `prisma/schema.prisma`:
   - `PUT /api/v1/projects/:projectId/change-orders/:id` body: `UpdateChangeOrderSchema` → ChangeOrder
   - `DELETE /api/v1/projects/:projectId/change-orders/:id` → deleted ChangeOrder
   - `GET /api/v1/projects/:projectId/change-orders/:id/export` → PDF stream
- - Share Links
-  - `POST /api/v1/projects/:projectId/share-link` body: `CreateShareLinkSchema` → `{ id, url, expiresAt?, showScopeItems?, showRequests?, showChangeOrders?, createdAt }`
-  - `GET /api/v1/projects/:projectId/share-link` → `[{ id, createdAt, expiresAt?, revokedAt?, isActive, viewCount, lastViewedAt?, permissions }]`
-  - `DELETE /api/v1/projects/:projectId/share-link/:id` → `{ id }`
-  - `GET /public/share/:token` → public project view `{ project, client, scopeItems?, requests?, changeOrders?, permissions }`
+- Share Links
+  - `POST /api/v1/projects/:projectId/share-link` body: `CreateShareLinkSchema` → `CreateShareLinkResponse`
+  - `GET /api/v1/projects/:projectId/share-link` → `ShareLinkListItem[]`
+  - `DELETE /api/v1/projects/:projectId/share-link/:id` → `RevokeShareLinkResponse`
+  - `GET /public/share/:token` → `GetShareLinkResponse` (public project view)
 - Dashboard
   - `GET /api/v1/dashboard` → Dashboard metrics, recent activity, and quick stats
 - Webhooks
   - `POST /webhooks/clerk` raw JSON, Svix headers required
 
 ### Notes for AI Usage
-- Always assume endpoints require Clerk auth unless explicitly public (e.g., health, webhook).
+- Always assume endpoints require Clerk auth unless explicitly public (e.g., health, webhook, public share links).
 - Use `ErrorCodes` and `ServiceErrorCodes` to map domain errors to client-facing messages.
 - Use Zod schemas as the source of truth for request validation and shape.
 - Prisma relations enforce ownership and on-delete cascades as per schema.
+- Redis caching is used for dashboard and project data; cache invalidation happens on mutations.
+- Share links use secure token generation with SHA256 hashing; only hashes are stored in DB.
+- PDF exports are generated using PDFKit for scope items and change orders.
+- All service functions have explicit return type annotations for better TypeScript support.

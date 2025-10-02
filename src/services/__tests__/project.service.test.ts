@@ -5,7 +5,7 @@ import {
   deleteProject, 
   updateProject 
 } from "../project.service";
-import { mockPrisma } from "../../__tests__/setup";
+import { mockPrisma, mockRedis } from "../../__tests__/setup";
 import { ServiceError } from "../../utils/service-error";
 import { ServiceErrorCodes } from "../../utils/service-error-codes";
 import { ProjectStatus } from "@prisma/client";
@@ -19,6 +19,10 @@ describe('project.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+    // Mock Redis to return null (no cache)
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
+    mockRedis.del.mockResolvedValue(1);
   });
 
   const mockClient = {

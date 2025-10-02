@@ -4,6 +4,7 @@ import { ServiceErrorCodes } from "../utils/service-error-codes";
 import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput, DeleteChangeOrderInput, ExportChangeOrderInput } from "../lib/types/changeOrder";
 import { ChangeOrderStatus, RequestStatus } from "@prisma/client";
 import { invalidateDashboardCache } from "../lib/cache";
+import { redis } from "../lib/redis";
 
 export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraDays, userId }: CreateChangeOrderInput) => {
     const changeOrder = await prisma.$transaction(async (tx) => {
@@ -34,7 +35,10 @@ export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraD
         });
     });
 
-    await invalidateDashboardCache(userId);
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
 
     return changeOrder;
 };
@@ -191,7 +195,10 @@ export const updateChangeOrder = async ({
         });
     });
 
-    await invalidateDashboardCache(userId);
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
 
     return changeOrder;
 };
@@ -219,7 +226,10 @@ export const deleteChangeOrder = async ({ projectId, id, userId }: DeleteChangeO
         });
     });
 
-    await invalidateDashboardCache(userId);
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
 
     return changeOrder;
 };

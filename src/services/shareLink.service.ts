@@ -175,7 +175,7 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput): 
         },
     }));
 
-    await redis.set(cacheKey, data, { ex: 60 * 5 }); // 5 minutes
+    await redis.set(cacheKey, data, { ex: 60 * 5 });
     return data;
 };
 

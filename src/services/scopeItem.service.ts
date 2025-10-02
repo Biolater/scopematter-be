@@ -9,6 +9,7 @@ import {
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import { invalidateDashboardCache } from "../lib/cache";
+import { redis } from "../lib/redis";
 
 export const createScopeItem = async ({ projectId, description, userId, name }: CreateScopeItemInput) => {
     const scopeItem = await prisma.$transaction(async (tx) => {
@@ -25,7 +26,10 @@ export const createScopeItem = async ({ projectId, description, userId, name }: 
         });
     });
 
-    await invalidateDashboardCache(userId);
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
 
     return scopeItem;
 };
@@ -63,11 +67,14 @@ export const deleteScopeItem = async ({ projectId, id, userId }: DeleteScopeItem
         if (deleted.count === 0) {
             throw new ServiceError(ServiceErrorCodes.SCOPE_ITEM_NOT_FOUND, "Scope item not found");
         }
+        await Promise.all([
+            redis.del(`project:${projectId}`),
+            invalidateDashboardCache(userId),
+        ]);
 
         return { id }; // return minimal response
     });
 
-    await invalidateDashboardCache(userId);
 
     return result;
 };
@@ -98,7 +105,10 @@ export const updateScopeItem = async ({ projectId, id, userId, description, name
         return tx.scopeItem.findUnique({ where: { id } });
     });
 
-    await invalidateDashboardCache(userId);
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
 
     return scopeItem;
 };

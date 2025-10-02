@@ -1,5 +1,5 @@
 import { createShareLink, getShareLink, getShareLinks, revokeShareLink } from "../shareLink.service";
-import { mockPrisma } from "../../__tests__/setup";
+import { mockPrisma, mockRedis } from "../../__tests__/setup";
 import { ServiceError } from "../../utils/service-error";
 import { ServiceErrorCodes } from "../../utils/service-error-codes";
 
@@ -50,6 +50,10 @@ describe("shareLink.service", () => {
     beforeEach(() => {
         jest.clearAllMocks();
         mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+        // Mock Redis to return null (no cache)
+        mockRedis.get.mockResolvedValue(null);
+        mockRedis.set.mockResolvedValue('OK');
+        mockRedis.del.mockResolvedValue(1);
         // Mock the generateShareToken utility
         jest.doMock("../../utils/share-link", () => ({
             generateShareToken: jest.fn(() => ({

@@ -3,6 +3,7 @@ import { ServiceErrorCodes } from "../utils/service-error-codes";
 import prisma from "../lib/prisma";
 import { CreateRequestInput, GetRequestsInput, UpdateRequestInput, DeleteRequestInput } from "../lib/types/request";
 import { invalidateDashboardCache } from "../lib/cache";
+import { redis } from "../lib/redis";
 
 export const createRequest = async ({ projectId, description, userId }: CreateRequestInput) => {
   const request = await prisma.$transaction(async (tx) => {
@@ -18,7 +19,10 @@ export const createRequest = async ({ projectId, description, userId }: CreateRe
     });
   });
 
-  await invalidateDashboardCache(userId);
+  await Promise.all([
+    redis.del(`project:${projectId}`),
+    invalidateDashboardCache(userId),
+  ]);
 
   return request;
 };
@@ -55,13 +59,20 @@ export const updateRequest = async ({ id, userId, data }: UpdateRequestInput) =>
       Object.entries(data).filter(([_, v]) => v !== undefined)
     );
 
-    return tx.request.update({
+    const request = await tx.request.update({
       where: { id },
       data: cleanData,
     });
+
+    await Promise.all([
+      redis.del(`project:${existingRequest.projectId}`),
+      invalidateDashboardCache(userId),
+    ]);
+
+    return request;
   });
 
-  await invalidateDashboardCache(userId);
+
 
   return request;
 };
@@ -76,12 +87,18 @@ export const deleteRequest = async ({ id, userId }: DeleteRequestInput) => {
       throw new ServiceError(ServiceErrorCodes.REQUEST_NOT_FOUND);
     }
 
-    return tx.request.delete({
+    const request = await tx.request.delete({
       where: { id },
     });
+
+    await Promise.all([
+      redis.del(`project:${existingRequest.projectId}`),
+      invalidateDashboardCache(userId),
+    ]);
+
+    return request;
   });
 
-  await invalidateDashboardCache(userId);
 
   return request;
 };
