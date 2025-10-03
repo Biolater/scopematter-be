@@ -82,10 +82,10 @@ export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetSha
     if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
         throw new ServiceError(ServiceErrorCodes.SHARE_LINK_EXPIRED);
     }
-/* 
-    const cacheKey = `share-link:${shareLink.id}`;
-    const cached = await redis.get<GetShareLinkResponse>(cacheKey);
-    if (cached) return cached; */
+    /* 
+        const cacheKey = `share-link:${shareLink.id}`;
+        const cached = await redis.get<GetShareLinkResponse>(cacheKey);
+        if (cached) return cached; */
 
     const { project } = shareLink;
 
