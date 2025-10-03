@@ -32,6 +32,13 @@ All controllers use helpers in `src/utils/response.ts`:
 - Redis caching via `src/lib/redis.ts` using Upstash Redis.
 - Cache invalidation helpers in `src/lib/cache.ts`.
 - Dashboard and project data cached with TTL.
+- **Cache Keys**:
+  - `dashboard:{userId}` - Dashboard metrics and activity (24h TTL)
+  - `projects:{userId}` - Project list with counts (24h TTL)
+  - `project:{projectId}` - Individual project details (24h TTL)
+  - `share-links:{projectId}` - Share links for a project
+- **Cache Invalidation**: Automatic on mutations (create/update/delete operations)
+- **Cache Strategy**: Write-through with immediate invalidation on data changes
 
 ### Data Model (Prisma)
 Defined in `prisma/schema.prisma`:
@@ -106,6 +113,7 @@ Defined in `prisma/schema.prisma`:
   - Get all share links for a project (auth required).
   - Revoke a specific share link (auth required).
   - Publicly resolve a share token (no auth) to read-only project summary.
+  - Sets security headers (`X-Robots-Tag`, `Cache-Control`) for public share links.
 - Dashboard: `src/controllers/dashboard.controller.ts`
   - Get dashboard metrics, activity feed, and quick stats for authenticated user.
 - Webhook: `src/controllers/clerk.controller.ts`
@@ -133,6 +141,8 @@ Defined in `prisma/schema.prisma`:
   - Update: only when current status is `PENDING`; validates allowed transitions; returns entity with `request` summary.
   - Delete: only when status is `PENDING`.
   - Export: returns project (with client) and the specific change order (with request) for PDF generation.
+  - Status transitions: `PENDING` → `APPROVED`/`REJECTED` (final states).
+  - Business rules: Only one change order per request, only for out-of-scope requests.
 - ShareLink: `src/services/shareLink.service.ts`
   - `createShareLink`: verifies ownership; generates secure token; stores sha256(token) only; returns `CreateShareLinkResponse`.
   - `getShareLink`: validates token, active flag, and expiry; increments `viewCount`/`lastViewedAt`; filters payload by `show*` flags; returns `GetShareLinkResponse`.
@@ -155,7 +165,7 @@ Defined in `prisma/schema.prisma`:
   - `deleteScopeItemSchema`: `{ id: cuid }`
   - `updateScopeItemSchema`: `{ description: string (1..1000), name: string (1..100), status: enum(PENDING | COMPLETED | IN_PROGRESS) }`.
   - Types: `CreateScopeItemSchema`, `DeleteScopeItemSchema`, `UpdateScopeItemSchema`.
- - ShareLink `src/validation/shareLink.schema.ts`
+- ShareLink `src/validation/shareLink.schema.ts`
   - `createShareLinkSchema`: `{ expiresAt?: date, showScopeItems?: boolean, showRequests?: boolean, showChangeOrders?: boolean }`
   - Types: `CreateShareLinkSchema`.
 - Request `src/validation/request.schema.ts`
@@ -183,6 +193,13 @@ Defined in `prisma/schema.prisma`:
   - Input: `CreateShareLinkInput`, `GetShareLinkInput`, `GetShareLinksInput`, `RevokeShareLinkInput`.
   - Output: `CreateShareLinkResponse`, `GetShareLinkResponse`, `ShareLinkListItem`, `RevokeShareLinkResponse`, `ShareLinkPermissions`.
 
+### Response Types and Error Handling
+- **Success Response**: `{ success: true, data: T, error: null, meta: {} }`
+- **Error Response**: `{ success: false, data: null, error: { message, code, details? }, meta: {} }`
+- **Error Details**: Array of `{ field: string, message: string }` for validation errors
+- **Service Error Codes**: Domain-specific error codes mapped to HTTP status codes
+- **Generic Error Codes**: Standard HTTP error codes for common scenarios
+
 ### Prisma Types (from `@prisma/client`)
 - Models: `AppUser`, `Client`, `Project`, `ScopeItem`, `Request`, `ChangeOrder`, `ShareLink`.
 - Enums: `RequestStatus`, `ChangeOrderStatus`, `ProjectStatus`, `scopeItemStatus`.
@@ -192,6 +209,24 @@ Defined in `prisma/schema.prisma`:
 - `validateBody(schema)` applies Zod validation and formats errors via `formatZodError`.
 - `errorHandler` maps unhandled errors to a generic `500`.
 - `handleServiceError` maps domain errors to HTTP errors using `ServiceErrorCodes`.
+
+### Global Middleware Stack
+- **Clerk Middleware**: `clerkMiddleware` with publishable and secret keys
+- **CORS**: Cross-origin resource sharing enabled
+- **Helmet**: Security headers for HTTP protection
+- **Morgan**: HTTP request logging in development
+- **JSON Body Parser**: Parses JSON request bodies
+- **Raw Body Parser**: For webhook endpoints (Clerk requires raw body)
+
+### Utility Functions
+- `src/utils/response.ts`: Standardized response helpers (`sendSuccess`, `sendError`) with consistent shape.
+- `src/utils/error-codes.ts`: Generic error codes (`UNAUTHORIZED`, `FORBIDDEN`, `VALIDATION_ERROR`, etc.).
+- `src/utils/service-error-codes.ts`: Domain-specific error codes for business logic validation.
+- `src/utils/service-error.ts`: `ServiceError` class for domain error handling.
+- `src/utils/error-mapper.ts`: Maps `ServiceError` codes to HTTP responses with appropriate status codes.
+- `src/utils/zod-error.ts`: Formats Zod validation errors into structured error details.
+- `src/utils/share-link.ts`: Generates secure share tokens using `randomBytes` and SHA256 hashing.
+- `src/utils/date.ts`: Date utilities (`getStartOfMonth`, `getStartOfWeek`) for dashboard metrics.
 
 ### Endpoint Reference (concise)
 - Projects
@@ -237,3 +272,34 @@ Defined in `prisma/schema.prisma`:
 - Share links use secure token generation with SHA256 hashing; only hashes are stored in DB.
 - PDF exports are generated using PDFKit for scope items and change orders.
 - All service functions have explicit return type annotations for better TypeScript support.
+
+### Business Logic Rules
+- **Project Ownership**: All operations verify project belongs to authenticated user
+- **Change Order Eligibility**: Only `OUT_OF_SCOPE` requests without existing change orders
+- **Status Transitions**: 
+  - Requests: `PENDING` → `IN_SCOPE`/`OUT_OF_SCOPE`
+  - Change Orders: `PENDING` → `APPROVED`/`REJECTED` (final states)
+  - Projects: `PENDING` → `IN_PROGRESS` → `COMPLETED`
+  - Scope Items: `PENDING` → `IN_PROGRESS` → `COMPLETED`
+- **Data Integrity**: All mutations use Prisma transactions for consistency
+- **Security**: Share tokens are never stored in plain text, only SHA256 hashes
+- **Validation**: Empty strings are coerced to `undefined` in update operations
+
+### PDF Export Features
+- **Scope Items Export**: `GET /api/v1/projects/:projectId/scope-items/export`
+  - Generates branded PDF with project details, client info, and ordered scope items.
+  - Includes ScopeMatter watermark and footer branding.
+  - Filename: `project-{projectId}-scope.pdf`
+- **Change Order Export**: `GET /api/v1/projects/:projectId/change-orders/:id/export`
+  - Generates branded PDF with project details, client info, request details, and change order specifics.
+  - Includes pricing, extra days, status, and creation date.
+  - Filename: `change-order-{id}.pdf`
+- Both exports use PDFKit with consistent styling and error handling for missing logo files.
+
+### Additional Endpoints
+- `GET /clerk/:userId` (internal utility)
+  - Requires `x-internal-secret` header matching `INTERNAL_API_SECRET`
+  - Returns Clerk user data and JWT token for testing
+  - Used for development/testing purposes
+- `GET /protected` (auth required)
+  - Returns user context for testing authentication
