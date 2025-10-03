@@ -98,13 +98,29 @@ export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetSha
     });
 
     const data: GetShareLinkResponse = {
+        link: {
+            id: shareLink.id,
+            projectId: shareLink.projectId,
+            expiresAt: shareLink.expiresAt,
+            revokedAt: shareLink.revokedAt,
+            isActive: shareLink.isActive,
+            viewCount: shareLink.viewCount,
+            lastViewedAt: shareLink.lastViewedAt,
+            createdAt: shareLink.createdAt,
+            updatedAt: shareLink.updatedAt,
+            permissions: {
+                showScopeItems: shareLink.showScopeItems,
+                showRequests: shareLink.showRequests,
+                showChangeOrders: shareLink.showChangeOrders,
+            },
+        },
         project: {
             name: project.name,
             description: project.description,
-        },
-        client: {
-            name: project.client.name,
-            company: project.client.company,
+            status: project.status,
+            client: project.client,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
         },
         scopeItems: shareLink.showScopeItems
             ? project.scopeItems.map((s) => ({
@@ -112,6 +128,7 @@ export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetSha
                 name: s.name,
                 description: s.description,
                 status: s.status,
+                createdAt: s.createdAt,
             }))
             : [],
         requests: shareLink.showRequests
@@ -119,6 +136,7 @@ export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetSha
                 id: r.id,
                 description: r.description,
                 status: r.status,
+                createdAt: r.createdAt,
             }))
             : [],
         changeOrders: shareLink.showChangeOrders
@@ -128,13 +146,11 @@ export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetSha
                 priceUsd: Number(c.priceUsd),
                 extraDays: c.extraDays,
                 status: c.status,
+                createdAt: c.createdAt,
             }))
             : [],
-        permissions: {
-            showScopeItems: shareLink.showScopeItems,
-            showRequests: shareLink.showRequests,
-            showChangeOrders: shareLink.showChangeOrders,
-        },
+
+
     };
 
     await redis.set(cacheKey, data, { ex: 60 * 5 });

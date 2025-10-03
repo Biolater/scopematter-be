@@ -1,3 +1,5 @@
+import { ChangeOrderStatus, ProjectStatus } from "@prisma/client";
+
 export interface CreateShareLinkInput {
     projectId: string;
     expiresAt?: Date | null;
@@ -40,24 +42,45 @@ export interface ShareLinkPermissions {
 }
 
 export interface GetShareLinkResponse {
+    link: {
+        id: string;
+        projectId: string;
+        expiresAt: Date | null;
+        revokedAt: Date | null;
+        isActive: boolean;
+        viewCount: number;
+        lastViewedAt: Date | null;
+        createdAt: Date;
+        updatedAt: Date;
+        permissions: ShareLinkPermissions;
+    }
     project: {
         name: string;
         description: string | null | undefined;
-    };
-    client: {
-        name: string;
-        company: string | null | undefined;
+        status: ProjectStatus;
+        client?: {
+            name: string;
+            company?: string | null | undefined;
+        };
+        createdAt: Date;
+        updatedAt: Date;
     };
     scopeItems: Array<{
         id: string;
         name: string;
         description: string | null | undefined;
         status: string;
+        createdAt: Date;
     }>;
     requests: Array<{
         id: string;
         description: string;
         status: string;
+        createdAt: Date;
+        changeOrder?: {
+            id: string;
+            status: ChangeOrderStatus;
+        }
     }>;
     changeOrders: Array<{
         id: string;
@@ -65,7 +88,6 @@ export interface GetShareLinkResponse {
         extraDays: number | null;
         status: string;
     }>;
-    permissions: ShareLinkPermissions;
 }
 
 export interface ShareLinkListItem {

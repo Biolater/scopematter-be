@@ -404,13 +404,29 @@ describe("shareLink.service", () => {
                 },
             });
             expect(result).toEqual({
+                link: {
+                    id: shareLinkId,
+                    projectId,
+                    expiresAt: null,
+                    revokedAt: null,
+                    isActive: true,
+                    viewCount: 0,
+                    lastViewedAt: null,
+                    createdAt: now,
+                    updatedAt: now,
+                    permissions: {
+                        showScopeItems: true,
+                        showRequests: true,
+                        showChangeOrders: true,
+                    },
+                },
                 project: {
                     name: "Test Project",
                     description: "Test Description",
-                },
-                client: {
-                    name: "Test Client",
-                    company: "Test Company",
+                    status: "PENDING",
+                    client: mockClient,
+                    createdAt: now,
+                    updatedAt: now,
                 },
                 scopeItems: [
                     {
@@ -418,12 +434,14 @@ describe("shareLink.service", () => {
                         name: "Item 1",
                         description: "Description 1",
                         status: "PENDING",
+                        createdAt: now,
                     },
                     {
                         id: "item2",
                         name: "Item 2",
                         description: "Description 2",
                         status: "COMPLETED",
+                        createdAt: now,
                     },
                 ],
                 requests: [
@@ -431,11 +449,13 @@ describe("shareLink.service", () => {
                         id: "req1",
                         description: "Request 1",
                         status: "PENDING",
+                        createdAt: now,
                     },
                     {
                         id: "req2",
                         description: "Request 2",
                         status: "OUT_OF_SCOPE",
+                        createdAt: now,
                     },
                 ],
                 changeOrders: [
@@ -444,19 +464,16 @@ describe("shareLink.service", () => {
                         priceUsd: 1000,
                         extraDays: 5,
                         status: "PENDING",
+                        createdAt: now,
                     },
                     {
                         id: "co2",
                         priceUsd: 500,
                         extraDays: null,
                         status: "APPROVED",
+                        createdAt: now,
                     },
                 ],
-                permissions: {
-                    showScopeItems: true,
-                    showRequests: true,
-                    showChangeOrders: true,
-                },
             });
         });
 
@@ -477,14 +494,14 @@ describe("shareLink.service", () => {
 
             const result = await getShareLink({ token: "test_token_123" });
 
-            expect(result.scopeItems).toEqual([]);
-            expect(result.requests).toHaveLength(2);
-            expect(result.changeOrders).toEqual([]);
-            expect(result.permissions).toEqual({
+            expect(result.link.permissions).toEqual({
                 showScopeItems: false,
                 showRequests: true,
                 showChangeOrders: false,
             });
+            expect(result.scopeItems).toEqual([]);
+            expect(result.requests).toHaveLength(2);
+            expect(result.changeOrders).toEqual([]);
         });
 
         it("increments view count and updates last viewed timestamp", async () => {
