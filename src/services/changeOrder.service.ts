@@ -3,9 +3,11 @@ import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import { CreateChangeOrderInput, GetChangeOrdersInput, GetChangeOrderInput, UpdateChangeOrderInput, DeleteChangeOrderInput, ExportChangeOrderInput } from "../lib/types/changeOrder";
 import { ChangeOrderStatus, RequestStatus } from "@prisma/client";
+import { invalidateDashboardCache } from "../lib/cache";
+import { redis } from "../lib/redis";
 
 export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraDays, userId }: CreateChangeOrderInput) => {
-    return prisma.$transaction(async (tx) => {
+    const changeOrder = await prisma.$transaction(async (tx) => {
         // Ensure request belongs to project and is OUT_OF_SCOPE
         const request = await tx.request.findFirst({
             where: {
@@ -30,9 +32,16 @@ export const createChangeOrder = async ({ projectId, requestId, priceUsd, extraD
                 extraDays,
                 status: ChangeOrderStatus.PENDING,
             }
-        })
-    })
-}
+        });
+    });
+
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
+
+    return changeOrder;
+};
 
 export const getChangeOrders = async ({ projectId, userId }: GetChangeOrdersInput) => {
     return prisma.$transaction(async (tx) => {
@@ -130,7 +139,7 @@ export const updateChangeOrder = async ({
     status,
     userId,
 }: UpdateChangeOrderInput) => {
-    return prisma.$transaction(async (tx) => {
+    const changeOrder = await prisma.$transaction(async (tx) => {
         // Ensure project belongs to user
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -185,10 +194,17 @@ export const updateChangeOrder = async ({
             },
         });
     });
+
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
+
+    return changeOrder;
 };
 
 export const deleteChangeOrder = async ({ projectId, id, userId }: DeleteChangeOrderInput) => {
-    return prisma.$transaction(async (tx) => {
+    const changeOrder = await prisma.$transaction(async (tx) => {
         // Ensure project belongs to user
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -209,6 +225,13 @@ export const deleteChangeOrder = async ({ projectId, id, userId }: DeleteChangeO
             where: { id },
         });
     });
+
+    await Promise.all([
+        redis.del(`project:${projectId}`),
+        invalidateDashboardCache(userId),
+    ]);
+
+    return changeOrder;
 };
 
 export const exportChangeOrder = async ({ projectId, id, userId }: ExportChangeOrderInput) => {

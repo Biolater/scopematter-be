@@ -1,5 +1,5 @@
 import { getDashboard } from "../dashboard.service";
-import { mockPrisma } from "../../__tests__/setup";
+import { mockPrisma, mockRedis } from "../../__tests__/setup";
 import { ProjectStatus, RequestStatus, ChangeOrderStatus } from "@prisma/client";
 import { Decimal } from "@prisma/client/runtime/library";
 
@@ -12,6 +12,9 @@ describe('dashboard.service', () => {
   beforeEach(() => {
     jest.clearAllMocks();
     mockPrisma.$transaction.mockImplementation((fn: any) => fn(mockPrisma));
+    // Mock Redis to return null (no cache)
+    mockRedis.get.mockResolvedValue(null);
+    mockRedis.set.mockResolvedValue('OK');
     // Mock the date utilities to return predictable values
     jest.spyOn(require('../../utils/date'), 'getStartOfMonth').mockReturnValue(startOfMonth);
     jest.spyOn(require('../../utils/date'), 'getStartOfWeek').mockReturnValue(startOfWeek);
@@ -199,11 +202,27 @@ describe('dashboard.service', () => {
     });
 
     it('should correctly query with userId filter', async () => {
-      // Mock minimal responses
-      mockPrisma.project.count.mockResolvedValue(1);
-      mockPrisma.scopeItem.count.mockResolvedValue(1);
-      mockPrisma.request.count.mockResolvedValue(1);
-      mockPrisma.changeOrder.count.mockResolvedValue(1);
+      // Mock all the count queries in the correct order
+      mockPrisma.project.count
+        .mockResolvedValueOnce(1) // totalProjects
+        .mockResolvedValueOnce(1)  // newProjectsThisMonth
+        .mockResolvedValueOnce(1); // completedProjects
+
+      mockPrisma.scopeItem.count
+        .mockResolvedValueOnce(1) // totalScopeItems
+        .mockResolvedValueOnce(1); // newScopeThisWeek
+
+      mockPrisma.request.count
+        .mockResolvedValueOnce(1) // totalRequests
+        .mockResolvedValueOnce(1)  // newRequestsThisWeek
+        .mockResolvedValueOnce(1); // pendingRequests
+
+      mockPrisma.changeOrder.count
+        .mockResolvedValueOnce(1) // totalChangeOrders
+        .mockResolvedValueOnce(1)  // newChangeOrdersThisMonth
+        .mockResolvedValueOnce(1)  // approvedChangeOrders
+        .mockResolvedValueOnce(1)  // rejectedChangeOrders
+        .mockResolvedValueOnce(1); // pendingChangeOrders
 
       mockPrisma.project.findMany.mockResolvedValue([]);
       mockPrisma.request.findMany.mockResolvedValue([]);
@@ -230,10 +249,27 @@ describe('dashboard.service', () => {
     });
 
     it('should correctly apply date filters for growth metrics', async () => {
-      mockPrisma.project.count.mockResolvedValue(1);
-      mockPrisma.scopeItem.count.mockResolvedValue(1);
-      mockPrisma.request.count.mockResolvedValue(1);
-      mockPrisma.changeOrder.count.mockResolvedValue(1);
+      // Mock all the count queries in the correct order
+      mockPrisma.project.count
+        .mockResolvedValueOnce(1) // totalProjects
+        .mockResolvedValueOnce(1)  // newProjectsThisMonth
+        .mockResolvedValueOnce(1); // completedProjects
+
+      mockPrisma.scopeItem.count
+        .mockResolvedValueOnce(1) // totalScopeItems
+        .mockResolvedValueOnce(1); // newScopeThisWeek
+
+      mockPrisma.request.count
+        .mockResolvedValueOnce(1) // totalRequests
+        .mockResolvedValueOnce(1)  // newRequestsThisWeek
+        .mockResolvedValueOnce(1); // pendingRequests
+
+      mockPrisma.changeOrder.count
+        .mockResolvedValueOnce(1) // totalChangeOrders
+        .mockResolvedValueOnce(1)  // newChangeOrdersThisMonth
+        .mockResolvedValueOnce(1)  // approvedChangeOrders
+        .mockResolvedValueOnce(1)  // rejectedChangeOrders
+        .mockResolvedValueOnce(1); // pendingChangeOrders
 
       mockPrisma.project.findMany.mockResolvedValue([]);
       mockPrisma.request.findMany.mockResolvedValue([]);
@@ -260,10 +296,27 @@ describe('dashboard.service', () => {
     });
 
     it('should correctly apply status filters', async () => {
-      mockPrisma.project.count.mockResolvedValue(1);
-      mockPrisma.scopeItem.count.mockResolvedValue(1);
-      mockPrisma.request.count.mockResolvedValue(1);
-      mockPrisma.changeOrder.count.mockResolvedValue(1);
+      // Mock all the count queries in the correct order
+      mockPrisma.project.count
+        .mockResolvedValueOnce(1) // totalProjects
+        .mockResolvedValueOnce(1)  // newProjectsThisMonth
+        .mockResolvedValueOnce(1); // completedProjects
+
+      mockPrisma.scopeItem.count
+        .mockResolvedValueOnce(1) // totalScopeItems
+        .mockResolvedValueOnce(1); // newScopeThisWeek
+
+      mockPrisma.request.count
+        .mockResolvedValueOnce(1) // totalRequests
+        .mockResolvedValueOnce(1)  // newRequestsThisWeek
+        .mockResolvedValueOnce(1); // pendingRequests
+
+      mockPrisma.changeOrder.count
+        .mockResolvedValueOnce(1) // totalChangeOrders
+        .mockResolvedValueOnce(1)  // newChangeOrdersThisMonth
+        .mockResolvedValueOnce(1)  // approvedChangeOrders
+        .mockResolvedValueOnce(1)  // rejectedChangeOrders
+        .mockResolvedValueOnce(1); // pendingChangeOrders
 
       mockPrisma.project.findMany.mockResolvedValue([]);
       mockPrisma.request.findMany.mockResolvedValue([]);

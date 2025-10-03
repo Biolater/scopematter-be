@@ -25,6 +25,8 @@
     "@types/morgan": "^1.9.10",
     "@types/node": "^24.3.0",
     "@types/pdfkit": "^0.17.3",
+    "@upstash/redis": "^0.0.0-ci.c21ca079c33c67efb29ee43e778ab181aeed6386-20250530111221",
+    "@vercel/speed-insights": "^1.2.0",
     "body-parser": "^2.2.0",
     "cors": "^2.8.5",
     "dotenv": "^17.2.1",

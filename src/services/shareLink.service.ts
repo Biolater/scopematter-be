@@ -1,12 +1,30 @@
 import { createHash } from "crypto";
 import { ENV } from "../config/env";
 import prisma from "../lib/prisma";
-import { CreateShareLinkInput, GetShareLinkInput, GetShareLinksInput, RevokeShareLinkInput } from "../lib/types/shareLink";
+import {
+    CreateShareLinkInput,
+    CreateShareLinkResponse,
+    GetShareLinkInput,
+    GetShareLinkResponse,
+    GetShareLinksInput,
+    ShareLinkListItem,
+    RevokeShareLinkInput,
+    RevokeShareLinkResponse,
+} from "../lib/types/shareLink";
 import { ServiceError } from "../utils/service-error";
 import { ServiceErrorCodes } from "../utils/service-error-codes";
 import { generateShareToken } from "../utils/share-link";
+import { redis } from "../lib/redis";
 
-export const createShareLink = async ({ projectId, expiresAt = null, showScopeItems = true, showRequests = true, showChangeOrders = true, userId }: CreateShareLinkInput) => {
+// -------------------- Create --------------------
+export const createShareLink = async ({
+    projectId,
+    expiresAt = null,
+    showScopeItems = true,
+    showRequests = true,
+    showChangeOrders = true,
+    userId,
+}: CreateShareLinkInput): Promise<CreateShareLinkResponse> => {
     return prisma.$transaction(async (tx) => {
         const project = await tx.project.findFirst({
             where: { id: projectId, userId },
@@ -24,22 +42,26 @@ export const createShareLink = async ({ projectId, expiresAt = null, showScopeIt
                 showRequests,
                 showChangeOrders,
                 isActive: true,
-            }
-        })
+            },
+        });
+
+        await redis.del(`share-links:${projectId}`);
 
         return {
             id: shareLink.id,
-            url: `${ENV.APP_URL}/p/${token}`,
+            url: `${ENV.APP_URL}/share/${token}`,
             expiresAt: shareLink.expiresAt,
             showScopeItems: shareLink.showScopeItems,
             showRequests: shareLink.showRequests,
             showChangeOrders: shareLink.showChangeOrders,
             createdAt: shareLink.createdAt,
-        }
-    })
-}
+        };
+    });
+};
 
-export const getShareLink = async ({ token }: GetShareLinkInput) => {
+// -------------------- Get single share link --------------------
+export const getShareLink = async ({ token }: GetShareLinkInput): Promise<GetShareLinkResponse> => {
+    // Derive hash to find link by token
     const tokenHash = createHash("sha256").update(token).digest("base64url");
     const shareLink = await prisma.shareLink.findUnique({
         where: { tokenHash },
@@ -54,11 +76,16 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
             },
         },
     });
+
     if (!shareLink) throw new ServiceError(ServiceErrorCodes.SHARE_LINK_NOT_FOUND);
     if (!shareLink.isActive) throw new ServiceError(ServiceErrorCodes.SHARE_LINK_NOT_ACTIVE);
     if (shareLink.expiresAt && shareLink.expiresAt < new Date()) {
         throw new ServiceError(ServiceErrorCodes.SHARE_LINK_EXPIRED);
     }
+    /* 
+        const cacheKey = `share-link:${shareLink.id}`;
+        const cached = await redis.get<GetShareLinkResponse>(cacheKey);
+        if (cached) return cached; */
 
     const { project } = shareLink;
 
@@ -70,15 +97,30 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
         },
     });
 
-
-    return {
+    const data: GetShareLinkResponse = {
+        link: {
+            id: shareLink.id,
+            projectId: shareLink.projectId,
+            expiresAt: shareLink.expiresAt,
+            revokedAt: shareLink.revokedAt,
+            isActive: shareLink.isActive,
+            viewCount: shareLink.viewCount,
+            lastViewedAt: shareLink.lastViewedAt,
+            createdAt: shareLink.createdAt,
+            updatedAt: shareLink.updatedAt,
+            permissions: {
+                showScopeItems: shareLink.showScopeItems,
+                showRequests: shareLink.showRequests,
+                showChangeOrders: shareLink.showChangeOrders,
+            },
+        },
         project: {
             name: project.name,
             description: project.description,
-        },
-        client: {
-            name: project.client.name,
-            company: project.client.company,
+            status: project.status,
+            client: project.client,
+            createdAt: project.createdAt,
+            updatedAt: project.updatedAt,
         },
         scopeItems: shareLink.showScopeItems
             ? project.scopeItems.map((s) => ({
@@ -86,6 +128,7 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
                 name: s.name,
                 description: s.description,
                 status: s.status,
+                createdAt: s.createdAt,
             }))
             : [],
         requests: shareLink.showRequests
@@ -93,29 +136,38 @@ export const getShareLink = async ({ token }: GetShareLinkInput) => {
                 id: r.id,
                 description: r.description,
                 status: r.status,
+                createdAt: r.createdAt,
             }))
             : [],
         changeOrders: shareLink.showChangeOrders
             ? project.changeOrders.map((c) => ({
                 id: c.id,
-                priceUsd: c.priceUsd,
+                // Prisma Decimal -> number for DTO
+                priceUsd: Number(c.priceUsd),
                 extraDays: c.extraDays,
                 status: c.status,
+                createdAt: c.createdAt,
             }))
             : [],
-        permissions: {
-            showScopeItems: shareLink.showScopeItems,
-            showRequests: shareLink.showRequests,
-            showChangeOrders: shareLink.showChangeOrders,
-        },
-    }
+
+
+    };
+
+/*     await redis.set(cacheKey, data, { ex: 60 * 5 });
+ */    return data;
 };
 
-export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) => {
+// -------------------- Get list of share links --------------------
+export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput): Promise<ShareLinkListItem[]> => {
+    const cacheKey = `share-links:${projectId}`;
+    const cachedShareLinks = await redis.get<ShareLinkListItem[]>(cacheKey);
+    if (cachedShareLinks) {
+        return cachedShareLinks;
+    }
+
     const project = await prisma.project.findFirst({
         where: { id: projectId, userId },
-    })
-
+    });
     if (!project) throw new ServiceError(ServiceErrorCodes.PROJECT_NOT_FOUND);
 
     const links = await prisma.shareLink.findMany({
@@ -123,7 +175,7 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) =
         orderBy: { createdAt: "desc" },
     });
 
-    return links.map((l) => ({
+    const data: ShareLinkListItem[] = links.map((l) => ({
         id: l.id,
         createdAt: l.createdAt,
         expiresAt: l.expiresAt,
@@ -131,20 +183,26 @@ export const getShareLinks = async ({ userId, projectId }: GetShareLinksInput) =
         isActive: l.isActive,
         viewCount: l.viewCount,
         lastViewedAt: l.lastViewedAt,
+        projectId: l.projectId,
         permissions: {
             showScopeItems: l.showScopeItems,
             showRequests: l.showRequests,
             showChangeOrders: l.showChangeOrders,
         },
     }));
-}
 
-export const revokeShareLink = async ({ userId, id }: RevokeShareLinkInput) => {
+    await redis.set(cacheKey, data, { ex: 60 * 5 });
+    return data;
+};
+
+// -------------------- Revoke --------------------
+export const revokeShareLink = async ({ userId, id }: RevokeShareLinkInput): Promise<RevokeShareLinkResponse> => {
     const link = await prisma.shareLink.findFirst({
         where: { id, project: { userId } },
     });
     if (!link) throw new ServiceError(ServiceErrorCodes.SHARE_LINK_NOT_FOUND);
     if (!link.isActive) throw new ServiceError(ServiceErrorCodes.SHARE_LINK_NOT_ACTIVE);
+
     const updatedLink = await prisma.shareLink.update({
         where: { id },
         data: {
@@ -152,9 +210,15 @@ export const revokeShareLink = async ({ userId, id }: RevokeShareLinkInput) => {
             isActive: false,
         },
     });
+
+    await Promise.all([
+        redis.del(`share-link:${id}`),
+        redis.del(`share-links:${link.projectId}`),
+    ]);
+
     return {
         id: updatedLink.id,
         revokedAt: updatedLink.revokedAt,
         isActive: updatedLink.isActive,
     };
-}
+};
