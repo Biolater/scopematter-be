@@ -5,10 +5,6 @@
 </p>
 
 <p align="center">
-  <img src="assets/scopematter-banner.png" alt="ScopeMatter Banner" width="600" />
-</p>
-
-<p align="center">
   <img src="https://img.shields.io/badge/Node.js-6DA55F?style=flat-square&logo=node.js&logoColor=white" />
   <img src="https://img.shields.io/badge/Express.js-404D59?style=flat-square&logo=express&logoColor=white" />
   <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" />
