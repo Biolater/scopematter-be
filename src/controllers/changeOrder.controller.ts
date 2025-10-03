@@ -4,6 +4,7 @@ import { handleServiceError } from "../utils/error-mapper";
 import { CreateChangeOrderSchema, UpdateChangeOrderSchema } from "../validation/changeOrder.schema";
 import { createChangeOrder, getChangeOrders, getChangeOrder, updateChangeOrder, deleteChangeOrder, exportChangeOrder } from "../services/changeOrder.service";
 import PDFDocument from "pdfkit";
+import path from "path";
 
 export const createChangeOrderController = async (req: Request<{ projectId: string }, {}, CreateChangeOrderSchema>, res: Response) => {
     try {
@@ -77,17 +78,40 @@ export const exportChangeOrderController = async (
         );
         doc.pipe(res);
 
+        // Watermark (brand logo) - drawn first so content sits on top
+        const logoPath = path.join(process.cwd(), "public", "scopematter-brand.png");
+        try {
+            doc.save();
+            doc.opacity(0.12);
+            const pageWidth = doc.page.width;
+            const pageHeight = doc.page.height;
+            const watermarkSize = Math.min(pageWidth, pageHeight) * 0.6;
+            const watermarkX = (pageWidth - watermarkSize) / 2;
+            const watermarkY = (pageHeight - watermarkSize) / 2;
+            doc.image(logoPath, watermarkX, watermarkY, { width: watermarkSize });
+            doc.restore();
+        } catch (_) {
+            // Ignore missing logo errors; continue generating the PDF
+        }
+
         // Title
         doc
             .fontSize(20)
             .font("Helvetica-Bold")
-            .text("Change Order", { align: "center", underline: true })
-            .moveDown(2);
+            .text("Change Order", { align: "center" })
+            .moveDown(0.75);
+
+        // Separator under title
+        doc
+            .strokeColor("#E5E7EB")
+            .lineWidth(1)
+            .moveTo(doc.page.margins.left, doc.y)
+            .lineTo(doc.page.width - doc.page.margins.right, doc.y)
+            .stroke();
+        doc.moveDown(1);
 
         // Project / Client Info
-        doc.fontSize(14).font("Helvetica-Bold").text("Project Details", {
-            underline: true,
-        });
+        doc.fontSize(14).font("Helvetica-Bold").text("Project Details");
         doc.moveDown(0.5);
 
         doc.font("Helvetica-Bold").text("Project: ", { continued: true });
@@ -109,9 +133,7 @@ export const exportChangeOrderController = async (
         doc.moveDown(1.5);
 
         // Change Order Info
-        doc.fontSize(14).font("Helvetica-Bold").text("Change Order Details", {
-            underline: true,
-        });
+        doc.fontSize(14).font("Helvetica-Bold").text("Change Order Details");
         doc.moveDown(0.5);
 
         doc.font("Helvetica-Bold").text("Request: ", { continued: true });
