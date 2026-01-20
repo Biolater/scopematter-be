@@ -52,9 +52,9 @@ It is responsible for:
 | -------------- | ------------------------ | -------------------------------------------------------- |
 | Runtime        | Node.js + TypeScript     | Type-safe domain logic from request to persistence       |
 | API Framework  | Express.js               | Lightweight, explicit, and optimized for JSON throughput |
-| Persistence    | PostgreSQL + Prisma      | ACID compliance for sensitive financial operations       |
+| Persistence    | PostgreSQL + Prisma      | ACID compliance (Hosted on Supabase)                     |
 | Authentication | Clerk (Node SDK)         | Stateless JWT verification with tenant isolation         |
-| Storage        | Supabase (S3-compatible) | Durable storage for PDFs and project assets              |
+| PDF Engine     | PDFKit                   | On-demand generation of immutable contracts              |
 
 ---
 
