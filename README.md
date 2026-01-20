@@ -1,132 +1,168 @@
-# 📦 ScopeMatter Backend (API & Core Services)
+---
 
-<p align="center">
-  <i>The backend engine enabling freelancers and small agencies to manage projects, prevent scope creep, and formalize change requests.</i>
-</p>
+## 🧠 Engineering Cognition (Domain Architecture)
 
-<p align="center">
-  <img src="https://img.shields.io/badge/Node.js-6DA55F?style=flat-square&logo=node.js&logoColor=white" />
-  <img src="https://img.shields.io/badge/Express.js-404D59?style=flat-square&logo=express&logoColor=white" />
-  <img src="https://img.shields.io/badge/TypeScript-3178C6?style=flat-square&logo=typescript&logoColor=white" />
-  <img src="https://img.shields.io/badge/PostgreSQL-Database-blue?style=flat-square&logo=postgresql" />
-  <img src="https://img.shields.io/badge/Prisma-ORM-2D3748?style=flat-square&logo=prisma&logoColor=white" />
-  <img src="https://img.shields.io/badge/Clerk-Auth-orange?style=flat-square&logo=clerk" />
-  <img src="https://img.shields.io/badge/Supabase-3FCF8E?style=flat-square&logo=supabase&logoColor=white" />
-  <img src="https://img.shields.io/badge/Status-In%20Progress-yellow?style=flat-square" />
-</p>
+This API is architected for **strict reliability**.
+Every decision prioritizes **data immutability**, **financial correctness**, and **state consistency** across the entire system.
+
+> **Important**
+> 📘 **Read the ****[ARCHITECTURE.md](./ARCHITECTURE.md)**
+> This document explains the *Mirror Side* of ScopeMatter, including:
+>
+> * Database transaction safety
+> * Stateless JWT validation at the edge
+> * PDF engine orchestration and export guarantees
 
 ---
 
-## ⚙️ Purpose
+## 🧩 Domain Responsibilities
 
-This repository powers the **ScopeMatter backend**, providing APIs, authentication, and business rules for managing freelance and agency projects. Its mission is to **stop scope creep** and ensure freelancers get paid for every change request.
+This service acts as the **single source of truth** for the ScopeMatter ecosystem.
 
----
+It is responsible for:
 
-## 🧩 Core Backend Responsibilities
+- **State Management**
+  Enforcing the strict 3-state workflow:
+  `Requested → Classified → Approved`
 
-- **Project & Client Management:** Create and organize projects tied to specific clients.
-- **Scope Items:** Track and update in-scope deliverables with clear statuses.
-- **Requests & Change Orders:** Handle client requests, flag out-of-scope work, and generate formal change orders with pricing/delivery terms.
-- **Share Links:** Securely share read-only project views with clients (with granular visibility controls).
-- **Dashboard & Insights:** Deliver quick stats, growth metrics, and recent activity feeds for freelancers.
-- **Authentication & Security:** Full Clerk integration with robust authorization and request validation.
+- **Relational Integrity**
+  Managing deep relationships between:
+  - Freelancers
+  - Clients
+  - Projects
+  - Nested scope items and revisions
 
----
+- **Financial Reconciliation**
+  Generating **immutable Change Orders** with:
+  - Cryptographic identifiers
+  - Share-safe, client-facing access tokens
+  - Audit-ready data snapshots
 
-## 🔑 Key Features (Backend)
-
-| Feature                          | Description                                                                 |
-|----------------------------------|-----------------------------------------------------------------------------|
-| **📂 Project Management**         | Organize projects with associated client details.                           |
-| **📝 Scope Tracking**             | Manage scope items and monitor progress (Pending/In Progress/Completed).     |
-| **🔄 Request Handling**           | Create, update, and classify requests as in-scope or out-of-scope.          |
-| **💰 Change Orders**              | Generate formal out-of-scope agreements with pricing and delivery dates.    |
-| **🔗 Shareable Links**            | Secure project-sharing via tokenized links with customizable visibility.    |
-| **📊 Dashboard Metrics**          | Aggregated insights on projects, requests, and change orders.               |
-| **🔐 Clerk-Based Auth**           | Authentication and ownership enforcement on every API route.                |
-| **📑 PDF Exports**                | Export change orders and scopes to professional, client-facing PDFs.        |
-
----
-
-## 📦 Tech Stack
-
-| Runtime       | Language   | ORM     | Database    | Auth   |
-|---------------|------------|---------|-------------|--------|
-| Node.js + Express | TypeScript | Prisma  | PostgreSQL  | Clerk  |
+- **Document Orchestration**
+  A dedicated PDF engine that converts domain data into:
+  - Professional contracts
+  - Change order documents
+  - Financial summaries suitable for audits and disputes
 
 ---
 
-## 📌 Project Status
+## 🏗️ Technical Stack & Sovereign Patterns
 
-> 🛠️ **Actively Developed**  
-The backend currently supports the full MVP: projects, clients, scope items, requests, change orders, share links, and dashboard metrics. Current efforts focus on refining exports, scalability, and integrations.
+| Layer          | Technology               | Rationale                                                |
+| -------------- | ------------------------ | -------------------------------------------------------- |
+| Runtime        | Node.js + TypeScript     | Type-safe domain logic from request to persistence       |
+| API Framework  | Express.js               | Lightweight, explicit, and optimized for JSON throughput |
+| Persistence    | PostgreSQL + Prisma      | ACID compliance for sensitive financial operations       |
+| Authentication | Clerk (Node SDK)         | Stateless JWT verification with tenant isolation         |
+| Storage        | Supabase (S3-compatible) | Durable storage for PDFs and project assets              |
 
 ---
 
-## 🚀 Getting Started
+## 🛡️ API Governance & Security
 
-### Prerequisites
+### 1. Standardized Response Envelope
 
-- Node.js ≥ 18  
-- npm ≥ 9  
-- PostgreSQL running locally or via cloud (e.g., Supabase, Railway)  
-- Prisma CLI (`npm install -g prisma`)  
-- Clerk account & API keys  
+All endpoints follow a strict normalization contract to act as a **trust engine** for any consumer:
 
-### Setup Instructions
+```json
+{
+  "success": true,
+  "data": {
+    "id": "proj_123",
+    "status": "active"
+  },
+  "error": null
+}
+```
+
+This guarantees predictable frontend behavior and simplifies error handling across platforms.
+
+---
+
+### 2. Guarded State Transitions
+
+This API is not CRUD-driven.
+Every state mutation is **explicitly guarded** by domain rules:
+
+- **Ownership Verification**
+  The authenticated `clerkId` must match the project owner.
+
+- **Schema Validation**
+  All inputs are strictly validated using Zod before persistence.
+
+- **Atomic Operations**
+  Complex workflows (e.g. Change Order creation) execute inside Prisma transactions to prevent partial writes or financial corruption.
+
+---
+
+## 🌐 Distributed System Notice
+
+This repository contains the **Domain API** only.
+
+- **Frontend Layer**
+  👉 [https://github.com/Biolater/scopematter](https://github.com/Biolater/scopematter)
+
+- **Design Principle**
+  This API is:
+  - Stateless
+  - Horizontally scalable
+  - Interface-agnostic
+
+It can serve web, mobile, or CLI clients without modification.
+
+---
+
+## 🚀 Getting Started (Local Development)
+
+### 1. Clone the Repository
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/biolater/scopematter.git
-cd scopematter/backend
+git clone https://github.com/biolater/scopematter-be.git
+cd backend
+```
 
-# 2. Install dependencies
+### 2. Install Dependencies
+
+```bash
 npm install
+```
 
-# 3. Setup environment variables
+### 3. Environment Configuration
+
+```bash
 cp .env.example .env
-# Add PostgreSQL URI, Clerk API keys, etc.
+```
 
-# 4. Push the schema to your database
+Required variables:
+
+- `DATABASE_URL`
+- `CLERK_SECRET_KEY`
+- `CLERK_PUBLISHABLE_KEY`
+
+---
+
+### 4. Sync Database
+
+```bash
 npx prisma db push
-
-# 5. Generate the Prisma client
 npx prisma generate
-
-# 6. Start the dev server
-npm run dev
 ```
 
 ---
 
-## 📖 API Overview
+### 5. Launch Development Server
 
-- **Projects:** CRUD operations, tied to client and freelancer.  
-- **Scope Items:** CRUD within a project, track deliverables.  
-- **Requests:** Log client requests, mark them in/out of scope.  
-- **Change Orders:** Create and approve/reject change orders; export as PDFs.  
-- **Share Links:** Create, list, revoke, and resolve project share links.  
-- **Dashboard:** Aggregate metrics, recent activity, and quick stats.  
-- **Public Endpoint:** `GET /public/share/:token` to resolve a read-only project view.  
+```bash
+npm run dev
+```
 
-See `/api/v1/*` for endpoints.
+The API will boot in development mode with hot reload enabled.
 
 ---
 
-## 🛡️ Validation & Error Handling
+## 🧠 Final Note
 
-- **Zod Validation** on all request payloads.  
-- **Standardized API Envelope:**  
-  ```json
-  { "success": true, "data": {...}, "error": null }
-  ```  
-  ```json
-  { "success": false, "data": null, "error": { "message": "Invalid input", "code": "VALIDATION_ERROR" } }
-  ```  
+ScopeMatter’s backend is intentionally **opinionated**.
+It favors correctness, traceability, and long-term maintainability over speed of shortcuts.
 
----
-
-## 📜 License
-This project is currently proprietary and not licensed for external use.  
-All rights reserved © 2025 ScopeMatter.
+If you are reading this, you are looking at a system designed to **hold up under disputes, audits, and scale** — not demos.
