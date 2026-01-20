@@ -1,4 +1,4 @@
----
+# ScopeMatter Backend API
 
 ## 🧠 Engineering Cognition (Domain Architecture)
 
@@ -6,12 +6,12 @@ This API is architected for **strict reliability**.
 Every decision prioritizes **data immutability**, **financial correctness**, and **state consistency** across the entire system.
 
 > **Important**
-> 📘 **Read the ****[ARCHITECTURE.md](./ARCHITECTURE.md)**
-> This document explains the *Mirror Side* of ScopeMatter, including:
+> 📘 **Read the [ARCHITECTURE.md](./ARCHITECTURE.md)**
+> This document explains the _Mirror Side_ of ScopeMatter, including:
 >
-> * Database transaction safety
-> * Stateless JWT validation at the edge
-> * PDF engine orchestration and export guarantees
+> - Database transaction safety
+> - Stateless JWT validation at the edge
+> - PDF engine orchestration and export guarantees
 
 ---
 
@@ -133,11 +133,23 @@ npm install
 cp .env.example .env
 ```
 
-Required variables:
+**Core & Database**
+- `DATABASE_URL`: Connection string for PostgreSQL (Pooled)
+- `DIRECT_URL`: Direct connection string for migrations
+- `PORT`: (Optional) Defaults to 5000
+- `APP_URL`: The frontend URL (for CORS/Links)
 
-- `DATABASE_URL`
-- `CLERK_SECRET_KEY`
+**Authentication (Clerk)**
 - `CLERK_PUBLISHABLE_KEY`
+- `CLERK_SECRET_KEY`
+- `CLERK_WEBHOOK_SECRET`: For verifying Clerk webhooks
+
+**Caching (Upstash Redis)**
+- `UPSTASH_REDIS_REST_URL`
+- `UPSTASH_REDIS_REST_TOKEN`
+
+**Security**
+- `INTERNAL_API_SECRET`: For internal utility endpoints
 
 ---
 
