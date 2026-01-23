@@ -58,6 +58,14 @@ We don't choose technologies because they are popular; we choose them because th
     *   *Scenario*: If the database is leaked, the attacker generally cannot reverse-engineer the active links to view private project data.
 *   **Trade-off**: We cannot "recover" a lost link for a user; we must revoke and regenerate it. A worthy trade for security.
 
+### Decision 4: Containerized Sovereignty (Docker)
+*   **Context**: "It works on my machine" is not an acceptable engineering standard for a Trust Engine. Infrastructure dependencies (Redis, Postgres version) must be identical across Dev, CI, and Prod.
+*   **The Choice**: **Multi-Stage Docker Builds**.
+*   **Why**: We prioritize **immutable infrastructure**.
+    *   *Build*: Dependencies are locked in the image.
+    *   *Runtime*: No pollution of the host OS. The entire "Trust Engine" can be spun up on a fresh machine in minutes without installing Node/Redis locally.
+*   **Trade-off**: Initial setup complexity (Dockerizing dev env) vs. long-term stability. Use of `docker-compose` effectively isolates the app environment.
+
 ---
 
 ## 3. Technical Depth: Core Mechanisms

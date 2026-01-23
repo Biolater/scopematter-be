@@ -1,0 +1,52 @@
+services:
+  # The Core Trust Engine API
+  api:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: runner # Explicitly target the production runner stage
+    container_name: scopematter-api
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      # Database connection (Use host.docker.internal to reach local Postgres if not containerized, 
+      # or point to the 'postgres' service if we were spinning one up. 
+      # Assuming remote DB or local env vars for now, but enabling overrides)
+      - DATABASE_URL=${DATABASE_URL} 
+      - DIRECT_URL=${DIRECT_URL}
+      # Redis Connection (Pointing to the local redis service below)
+      - UPSTASH_REDIS_REST_URL=http://redis:6379
+      - UPSTASH_REDIS_REST_TOKEN=local_dev_token
+      # Auth (Clerk) - Passed through from host .env
+      - CLERK_PUBLISHABLE_KEY=${CLERK_PUBLISHABLE_KEY}
+      - CLERK_SECRET_KEY=${CLERK_SECRET_KEY}
+      - CLERK_WEBHOOK_SECRET=${CLERK_WEBHOOK_SECRET}
+    depends_on:
+      - redis
+    volumes:
+      # Mount specific assets if needed, but generally keep the container immutable.
+      # We could mount ./logs if we had file logging.
+      - ./assets:/app/assets
+    restart: always
+    networks:
+      - trust-network
+
+  # Local Redis Emulation for Cache Sovereignty
+  redis:
+    image: redis:alpine
+    container_name: scopematter-redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - trust-network
+
+volumes:
+  redis_data:
+
+networks:
+  trust-network:
+    driver: bridge

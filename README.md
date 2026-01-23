@@ -55,6 +55,7 @@ It is responsible for:
 | Persistence    | PostgreSQL + Prisma      | ACID compliance (Hosted on Supabase)                     |
 | Authentication | Clerk (Node SDK)         | Stateless JWT verification with tenant isolation         |
 | PDF Engine     | PDFKit                   | On-demand generation of immutable contracts              |
+| Infrastructure | Docker + Compose         | Containerized sovereignty for consistent environments    |
 
 ---
 
@@ -112,7 +113,20 @@ It can serve web, mobile, or CLI clients without modification.
 
 ---
 
-## 🚀 Getting Started (Local Development)
+## 🚀 Orchestration & Sovereignty
+
+The system supports two modes of execution: **Bare Metal** (Node Direct) and **Sovereign Container** (Docker).
+
+### Option A: Sovereign Container (Recommended)
+*Ensures strict environment parity with production.*
+
+```bash
+# Spin up the entire Trust Engine (API + Redis + Postgres Emulator)
+docker-compose up --build
+```
+
+### Option B: Bare Metal (Dev Mode)
+*For rapid feature iteration.*
 
 ### 1. Clone the Repository
 

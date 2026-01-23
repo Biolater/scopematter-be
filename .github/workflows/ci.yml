@@ -1,0 +1,105 @@
+name: Trust Engine Integrity (CI)
+
+on:
+  push:
+    branches: [ "main", "dev" ]
+  pull_request:
+    branches: [ "main", "dev" ]
+
+env:
+  DATABASE_URL: "postgresql://postgres:postgres@localhost:5432/scopematter_test"
+  DIRECT_URL: "postgresql://postgres:postgres@localhost:5432/scopematter_test"
+  CLERK_SECRET_KEY: "test_k_..."
+  CLERK_PUBLISHABLE_KEY: "pk_test_..."
+  NODE_ENV: "test"
+
+jobs:
+  # ------------------------------------------------------------------
+  # JOB 1: Code Integrity (Static Analysis)
+  # ------------------------------------------------------------------
+  integrity-check:
+    name: 🛡️ Code Integrity (Lint & Types)
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 🔍 Type Check (TSC)
+        run: npm run build # This runs tsc
+        # Note: We rely on the build script to run tsc. 
+        # If tsc fails, the build fails, and the pipeline halts.
+
+      - name: 🧹 Lint Check
+        # Assuming a lint script exists, if not, we skip or add a basic check.
+        # Fallback to simple check if script missing, but recommended to have "lint": "eslint ."
+        run: npm run lint --if-present
+
+  # ------------------------------------------------------------------
+  # JOB 2: Mathematical Proof (Unit Tests)
+  # ------------------------------------------------------------------
+  golden-path-tests:
+    name: 🧪 Mathematical Proof (Unit Tests)
+    runs-on: ubuntu-latest
+    needs: integrity-check # Don't test valid code if it's not even valid types
+    services:
+      # Spin up a throwaway Postgres for the testing duration
+      postgres:
+        image: postgres:15-alpine
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: scopematter_test
+        ports:
+          - 5432:5432
+        # Health check to ensure DB is ready before tests run
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install Dependencies
+        run: npm ci
+
+      - name: 🗄️ Database Schema Push (Test DB)
+        # We use direct schema push for tests, not migrations
+        run: npx prisma db push --skip-generate
+
+      - name: 🔄 Generate Prisma Client
+        run: npx prisma generate
+
+      - name: 🧪 Execute Golden Path Tests
+        run: npm test
+
+  # ------------------------------------------------------------------
+  # JOB 3: Container Sovereignty (Docker Build)
+  # ------------------------------------------------------------------
+  docker-validation:
+    name: 🐳 Container Sovereignty (Build)
+    runs-on: ubuntu-latest
+    needs: integrity-check
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+
+      - name: 🏗️ Build Docker "Trust Engine"
+        run: docker build . --file Dockerfile --tag scopematter-be:ci
