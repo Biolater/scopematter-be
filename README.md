@@ -15,6 +15,16 @@ Every decision prioritizes **data immutability**, **financial correctness**, and
 
 ---
 
+## 💼 Compliance & Value Proposition
+
+**"Senior Engineering at 30% Higher Efficiency"**
+
+*   **Global Compliance**: I operate as a **W-8BEN Compliant International Contractor**, fully eligible for simplified cross-border engagement with US/EU entities.
+*   **Fiscal Efficiency**: Based in Azerbaijan (Tax-Exempt Technology Zone), effectively reducing your total cost of employment by **20-30%** compared to equivalent W-2 hires (no payroll tax, no benefits overhead).
+*   **Timezone Leverage**: GMT/UTC+4 allows for a "Follow the Sun" workflow—I resolve critical blocks while your core team sleeps, enabling zero-latency handoffs.
+
+---
+
 ## 🧩 Domain Responsibilities
 
 This service acts as the **single source of truth** for the ScopeMatter ecosystem.
@@ -192,3 +202,15 @@ ScopeMatter’s backend is intentionally **opinionated**.
 It favors correctness, traceability, and long-term maintainability over speed of shortcuts.
 
 If you are reading this, you are looking at a system designed to **hold up under disputes, audits, and scale** — not demos.
+
+---
+
+## 🤖 Transparency & Disclosure: Proof of Autonomy
+
+This architecture was co-designed with **Advanced Agentic AI** under strict Human Governance.
+
+*   **Human Role (The Architect)**: Defined the Business Logic (Scope Creep Defense), Security Constraints (Auth Gates), and "Trust" Axioms.
+*   **AI Role (The Builder)**: Generated the Docker scaffolding, CI/CD pipelines, and boilerplate implementation patterns.
+*   **Verification**: 100% of code has been audited, tested, and verified by Human Intelligence.
+
+> **"AI is the hammer, not the carpenter."**
